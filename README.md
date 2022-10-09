@@ -1,7 +1,7 @@
 
 **Mists of Pandaria 5.4.8 Build 18414**
 
-Discord link: https://discord.gg/y3zspxan7k
+Discord link: https://discord.gg/8s2kfpEZxz
 
 Compiled exe files: https://mega.nz/file/0dxU1b4I#axVg6aXsNfgQeKcglV_RLHOPV4gXB_kpd2uSP1_OTOw
 
@@ -26,3 +26,7 @@ Read file [COPYING](COPYING.md)
 
 ## Authors &amp; Contributors
 Read file [THANKS](THANKS.md)
+
+[![windows-build](https://github.com/Legends-of-Azeroth/Legends-of-Azeroth-Pandaria-5.4.8/actions/workflows/windows-build.yml/badge.svg?branch=master)](https://github.com/Legends-of-Azeroth/Legends-of-Azeroth-Pandaria-5.4.8/actions/workflows/windows-build.yml)
+
+ПО всем вопросам обращайтесь в дискорд или на наш форум: http://legendsemu.funbb.ru/
