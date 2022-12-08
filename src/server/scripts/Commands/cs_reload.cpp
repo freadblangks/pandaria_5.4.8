@@ -84,6 +84,7 @@ public:
             { "areatrigger_teleport",           SEC_ADMINISTRATOR,  true,   &HandleReloadAreaTriggerTeleportCommand,        },
             { "autobroadcast",                  SEC_ADMINISTRATOR,  true,   &HandleReloadAutobroadcastCommand,              },
             { "battleground_template",          SEC_ADMINISTRATOR,  true,   &HandleReloaBattlegroundTemplateCommand,        },
+            { "broadcast_text",                 SEC_ADMINISTRATOR,  true,   &HandleReloadBroadcastTextCommand,              },
             { "command",                        SEC_ADMINISTRATOR,  true,   &HandleReloadCommandCommand,                    },
             { "conditions",                     SEC_ADMINISTRATOR,  true,   &HandleReloadConditions,                        },
             { "config",                         SEC_ADMINISTRATOR,  true,   &HandleReloadConfigCommand,                     },
@@ -115,7 +116,7 @@ public:
             { "locales_achievement_reward",     SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesAchievementRewardCommand,   },
             { "locales_creature",               SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesCreatureCommand,            },
             { "locales_creature_text",          SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesCreatureTextCommand,        },
-            { "locales_gameobject",             SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesGameobjectCommand,          },
+            { "gameobject_template_locale",     SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesGameobjectCommand,          },
             { "locales_gossip_menu_option",     SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesGossipMenuOptionCommand,    },
             { "locales_item",                   SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesItemCommand,                },
             { "locales_npc_text",               SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesNpcTextCommand,             },
@@ -410,6 +411,15 @@ public:
         TC_LOG_INFO("misc", "Re-Loading Battleground Templates...");
         sBattlegroundMgr->CreateInitialBattlegrounds(true);
         handler->SendGlobalGMSysMessage("DB table `battleground_template` reloaded.");
+        return true;
+    }
+
+    static bool HandleReloadBroadcastTextCommand(ChatHandler* handler, char const* /*args*/)
+    {
+        TC_LOG_INFO("misc", "Re-Loading Broadcast texts...");
+        sObjectMgr->LoadBroadcastTexts();
+        sObjectMgr->LoadBroadcastTextLocales();
+        handler->SendGlobalGMSysMessage("DB table `broadcast_text` reloaded.");
         return true;
     }
 
@@ -1132,9 +1142,9 @@ public:
 
     static bool HandleReloadLocalesGameobjectCommand(ChatHandler* handler, const char* /*args*/)
     {
-        TC_LOG_INFO("misc", "Re-Loading Locales Gameobject ... ");
+        TC_LOG_INFO("misc", "Re-Loading Gameobject Template Locale ... ");
         sObjectMgr->LoadGameObjectLocales();
-        handler->SendGlobalGMSysMessage("DB table `locales_gameobject` reloaded.");
+        handler->SendGlobalGMSysMessage("DB table `gameobject_template_locale` reloaded.");
         return true;
     }
 
@@ -1142,7 +1152,7 @@ public:
     {
         TC_LOG_INFO("misc", "Re-Loading Locales Gossip Menu Option ... ");
         sObjectMgr->LoadGossipMenuItemsLocales();
-        handler->SendGlobalGMSysMessage("DB table `locales_gossip_menu_option` reloaded.");
+        handler->SendGlobalGMSysMessage("DB table `gossip_menu_option_locales` reloaded.");
         return true;
     }
 
@@ -1158,7 +1168,7 @@ public:
     {
         TC_LOG_INFO("misc", "Re-Loading Locales NPC Text ... ");
         sObjectMgr->LoadNpcTextLocales();
-        handler->SendGlobalGMSysMessage("DB table `locales_npc_text` reloaded.");
+        handler->SendGlobalGMSysMessage("DB table `npc_text_locales` reloaded.");
         return true;
     }
 

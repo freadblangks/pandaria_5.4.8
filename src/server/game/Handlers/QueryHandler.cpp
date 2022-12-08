@@ -425,8 +425,8 @@ void WorldSession::HandleGameObjectQueryOpcode(WorldPacket& recvData)
         {
             if (GameObjectLocale const* gl = sObjectMgr->GetGameObjectLocale(entry))
             {
-                ObjectMgr::GetLocaleString(gl->Name, loc_idx, Name);
-                ObjectMgr::GetLocaleString(gl->CastBarCaption, loc_idx, CastBarCaption);
+                ObjectMgr::GetLocaleStringOld(gl->Name, loc_idx, Name);
+                ObjectMgr::GetLocaleStringOld(gl->CastBarCaption, loc_idx, CastBarCaption);
             }
         }
 
@@ -536,6 +536,7 @@ void WorldSession::HandleCorpseQueryOpcode(WorldPacket& /*recvData*/)
     SendPacket(&data);
 }
 
+// hack fix
 void WorldSession::HandleNpcTextQueryOpcode(WorldPacket& recvData)
 {
     uint32 textID;
@@ -573,8 +574,9 @@ void WorldSession::HandleNpcTextQueryOpcode(WorldPacket& recvData)
     for (int i = 0; i < MAX_GOSSIP_TEXT_OPTIONS - 1; i++)
         data << float(0);
 
-    data << textID;                                     // should be a broadcast id
-
+    //data << textID;    // should be a broadcast id   
+    data << pGossip->Options[0].BroadcastTextID;
+                        
     for (int i = 0; i < MAX_GOSSIP_TEXT_OPTIONS - 1; i++)
         data << uint32(0);
 
@@ -628,7 +630,7 @@ void WorldSession::HandlePageTextQueryOpcode(WorldPacket& recvData)
             int loc_idx = GetSessionDbLocaleIndex();
             if (loc_idx >= 0)
                 if (PageTextLocale const* player = sObjectMgr->GetPageTextLocale(pageID))
-                    ObjectMgr::GetLocaleString(player->Text, loc_idx, Text);
+                    ObjectMgr::GetLocaleStringOld(player->Text, loc_idx, Text);
 
             data.WriteBits(Text.size(), 12);
 
