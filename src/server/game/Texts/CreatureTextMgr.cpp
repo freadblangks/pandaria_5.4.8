@@ -24,26 +24,26 @@
 #include "GridNotifiers.h"
 #include "GridNotifiersImpl.h"
 #include "CreatureTextMgr.h"
+#include "SharedDefines.h"
 #include "Group.h"
 
 class CreatureTextBuilder
 {
     public:
-         CreatureTextBuilder(WorldObject* obj, ChatMsg msgtype, uint8 textGroup, uint32 id, uint32 language, WorldObject const* target)
-            : _source(obj), _msgType(msgtype), _textGroup(textGroup), _textId(id), _language(language), _target(target)
+         CreatureTextBuilder(WorldObject* obj, uint8 gender, ChatMsg msgtype, uint8 textGroup, uint32 id, uint32 language, WorldObject const* target)
+            : _source(obj), _gender(gender), _msgType(msgtype), _textGroup(textGroup), _textId(id), _language(language), _target(target)
         {
         }
 
-        void operator()(WorldPacket* data, LocaleConstant locale, uint64 guid) const
+        size_t operator()(WorldPacket* data, LocaleConstant locale) const
         {
-            std::string const& text = sCreatureTextMgr->GetLocalizedChatString(_source->GetEntry(), _textGroup, _textId, _source->isType(TYPEMASK_UNIT) ? (Gender)_source->ToUnit()->getGender() : GENDER_NONE, locale);
-            ObjectGuid receiverGuid = guid ? guid : _target ? _target->GetGUID() : 0;
-            
-            ChatHandler::BuildChatPacket(*data, _msgType, Language(_language), _source->GetGUID(), receiverGuid, text, 0,
-                _source->GetNameForLocaleIdx(locale), _target ? _target->GetNameForLocaleIdx(locale) : "");
+            std::string const& text = sCreatureTextMgr->GetLocalizedChatString(_source->GetEntry(), _gender, _textGroup, _textId, locale);
+
+            return ChatHandler::BuildChatPacket(*data, _msgType, Language(_language), _source, _target, text, 0, "", locale);
         }
 
         WorldObject* _source;
+        uint8 _gender;
         ChatMsg _msgType;
         uint8 _textGroup;
         uint32 _textId;
@@ -54,22 +54,22 @@ class CreatureTextBuilder
 class PlayerTextBuilder
 {
     public:
-        PlayerTextBuilder(WorldObject* obj, WorldObject* speaker, ChatMsg msgtype, uint8 textGroup, uint32 id, uint32 language, WorldObject const* target)
-            : _source(obj), _talker(speaker), _msgType(msgtype), _textGroup(textGroup), _textId(id), _language(language), _target(target)
+        PlayerTextBuilder(WorldObject* obj, WorldObject* speaker, uint8 gender, ChatMsg msgtype, uint8 textGroup, uint32 id, uint32 language, WorldObject const* target)
+            : _source(obj), _talker(speaker), _gender(gender), _msgType(msgtype), _textGroup(textGroup), _textId(id), _language(language), _target(target)
         {
 
         }
 
-        void operator()(WorldPacket* data, LocaleConstant locale, uint64 guid) const
+        size_t operator()(WorldPacket* data, LocaleConstant locale) const
         {
-            std::string const& text = sCreatureTextMgr->GetLocalizedChatString(_source->GetEntry(), _textGroup, _textId, _source->isType(TYPEMASK_UNIT) ? (Gender)_talker->ToUnit()->getGender() : GENDER_NONE, locale);
-            ObjectGuid receiverGuid = guid ? guid : _target ? _target->GetGUID() : 0;
-            ChatHandler::BuildChatPacket(*data, _msgType, Language(_language), _source->GetGUID(), receiverGuid, text, 0,
-                _source->GetNameForLocaleIdx(locale), _target ? _target->GetNameForLocaleIdx(locale) : "");
+            std::string const& text = sCreatureTextMgr->GetLocalizedChatString(_source->GetEntry(), _gender, _textGroup, _textId, locale);
+
+            return ChatHandler::BuildChatPacket(*data, _msgType, Language(_language), _talker, _target, text, 0, "", locale);
         }
 
         WorldObject* _source;
         WorldObject* _talker;
+        uint8 _gender;
         ChatMsg _msgType;
         uint8 _textGroup;
         uint32 _textId;
@@ -239,52 +239,14 @@ uint32 CreatureTextMgr::SendChat(Creature* source, uint8 textGroup,  WorldObject
 
     if (tempGroup.empty())
     {
-        CreatureTextRepeatMap::iterator mapItr = mTextRepeatMap.find(source->GetGUID());
-        if (mapItr != mTextRepeatMap.end())
-        {
-            CreatureTextRepeatGroup::iterator groupItr = mapItr->second.find(textGroup);
-            groupItr->second.clear();
-        }
-
+        source->ClearTextRepeatGroup(textGroup);
         tempGroup = textGroupContainer;
     }
 
-    uint8 count = 0;
-    float lastChance = -1;
-    bool isEqualChanced = true;
-
-    float totalChance = 0;
-
-    for (CreatureTextGroup::const_iterator iter = tempGroup.begin(); iter != tempGroup.end(); ++iter)
+    auto iter = Trinity::Containers::SelectRandomWeightedContainerElement(tempGroup, [](CreatureTextEntry const& t) -> double
     {
-        if (lastChance >= 0 && lastChance != iter->probability)
-            isEqualChanced = false;
-
-        lastChance = iter->probability;
-        totalChance += iter->probability;
-        ++count;
-    }
-
-    int32 offset = -1;
-    if (!isEqualChanced)
-    {
-        for (CreatureTextGroup::const_iterator iter = tempGroup.begin(); iter != tempGroup.end(); ++iter)
-        {
-            uint32 chance = uint32(iter->probability);
-            uint32 r = urand(0, 100);
-            ++offset;
-            if (r <= chance)
-                break;
-        }
-    }
-
-    uint32 pos = 0;
-    if (isEqualChanced || offset < 0)
-        pos = urand(0, count - 1);
-    else if (offset >= 0)
-        pos = offset;
-
-    CreatureTextGroup::const_iterator iter = tempGroup.begin() + pos;
+        return t.probability;
+    });
 
     ChatMsg finalType = (msgType == CHAT_MSG_ADDON) ? iter->type : msgType;
     Language finalLang = (language == LANG_ADDON) ? iter->lang : language;
@@ -305,17 +267,83 @@ uint32 CreatureTextMgr::SendChat(Creature* source, uint8 textGroup,  WorldObject
 
     if (srcPlr)
     {
-        PlayerTextBuilder builder(source, finalSource, finalType, iter->groupId, iter->id, finalLang, whisperTarget);
+        PlayerTextBuilder builder(source, finalSource, finalSource->getGender(), finalType, iter->groupId, iter->id, finalLang, whisperTarget);
         SendChatPacket(finalSource, builder, finalType, whisperTarget, range, team, gmOnly);
     }
     else
     {
-        CreatureTextBuilder builder(finalSource, finalType, iter->groupId, iter->id, finalLang, whisperTarget);
+        CreatureTextBuilder builder(finalSource, finalSource->getGender(), finalType, iter->groupId, iter->id, finalLang, whisperTarget);
         SendChatPacket(finalSource, builder, finalType, whisperTarget, range, team, gmOnly);
     }
-    if (isEqualChanced || (!isEqualChanced && totalChance == 100.0f))
-        SetRepeatId(source, textGroup, iter->id);
 
+    // uint8 count = 0;
+    // float lastChance = -1;
+    // bool isEqualChanced = true;
+
+    // float totalChance = 0;
+
+    // for (CreatureTextGroup::const_iterator iter = tempGroup.begin(); iter != tempGroup.end(); ++iter)
+    // {
+    //     if (lastChance >= 0 && lastChance != iter->probability)
+    //         isEqualChanced = false;
+
+    //     lastChance = iter->probability;
+    //     totalChance += iter->probability;
+    //     ++count;
+    // }
+
+    // int32 offset = -1;
+    // if (!isEqualChanced)
+    // {
+    //     for (CreatureTextGroup::const_iterator iter = tempGroup.begin(); iter != tempGroup.end(); ++iter)
+    //     {
+    //         uint32 chance = uint32(iter->probability);
+    //         uint32 r = urand(0, 100);
+    //         ++offset;
+    //         if (r <= chance)
+    //             break;
+    //     }
+    // }
+
+    // uint32 pos = 0;
+    // if (isEqualChanced || offset < 0)
+    //     pos = urand(0, count - 1);
+    // else if (offset >= 0)
+    //     pos = offset;
+
+    // CreatureTextGroup::const_iterator iter = tempGroup.begin() + pos;
+
+    // ChatMsg finalType = (msgType == CHAT_MSG_ADDON) ? iter->type : msgType;
+    // Language finalLang = (language == LANG_ADDON) ? iter->lang : language;
+    // uint32 finalSound = sound ? sound : iter->sound;
+
+    // if (range == TEXT_RANGE_NORMAL)
+    //     range = iter->TextRange;
+
+    // if (finalSound)
+    //     SendSound(source, finalSound, finalType, whisperTarget, range, team, gmOnly);
+
+    // Unit* finalSource = source;
+    // if (srcPlr)
+    //     finalSource = srcPlr;
+
+    // if (iter->emote)
+    //     SendEmote(finalSource, iter->emote);
+
+    // if (srcPlr)
+    // {
+    //     PlayerTextBuilder builder(source, finalSource, finalSource->getGender(), finalType, iter->groupId, iter->id, finalLang, whisperTarget);
+    //     SendChatPacket(finalSource, builder, finalType, whisperTarget, range, team, gmOnly);
+    // }
+    // else
+    // {
+    //     CreatureTextBuilder builder(finalSource, finalSource->getGender(), finalType, iter->groupId, iter->id, finalLang, whisperTarget);
+    //     SendChatPacket(finalSource, builder, finalType, whisperTarget, range, team, gmOnly);
+    // }
+    //// if (isEqualChanced || (!isEqualChanced && totalChance == 100.0f))
+    ////     SetRepeatId(source, textGroup, iter->id);
+
+    source->SetTextRepeatId(textGroup, iter->id);
     return iter->duration;
 }
 
@@ -453,18 +481,6 @@ void CreatureTextMgr::SendEmote(Unit* source, uint32 emote)
         return;
 
     source->HandleEmoteCommand(emote);
-}
-
-void CreatureTextMgr::SetRepeatId(Creature* source, uint8 textGroup, uint8 id)
-{
-    if (!source)
-        return;
-
-    CreatureTextRepeatIds& repeats = mTextRepeatMap[source->GetGUID()][textGroup];
-    if (std::find(repeats.begin(), repeats.end(), id) == repeats.end())
-        repeats.push_back(id);
-    else
-        TC_LOG_ERROR("sql.sql", "CreatureTextMgr: TextGroup %u for Creature(%s) GuidLow %u Entry %u, id %u already added", uint32(textGroup), source->GetName().c_str(), source->GetGUIDLow(), source->GetEntry(), uint32(id));
 }
 
 CreatureTextRepeatIds CreatureTextMgr::GetRepeatGroup(Creature* source, uint8 textGroup)
