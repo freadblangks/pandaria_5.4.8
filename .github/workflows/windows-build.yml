@@ -2,7 +2,7 @@ name: windows-build
 
 on:
   push:
-    branches: [ master, development, zTerragor-patch-emo ]
+    branches: [ master, development ]
     paths-ignore:
       - 'sql/**'
       
@@ -17,7 +17,7 @@ env:
   REPO_DIR : ${{github.workspace}}
   BUILD_DIR: ${{github.workspace}}/bin/builddir
   BOOST_TOOLSET: "msvc14.1"
-  BOOST_VERSION: "1.74.0"
+  BOOST_VERSION: "1.69.0"
   BOOST_INSTALL_DIR: "${{github.workspace}}/bin"
   
 jobs:
@@ -76,13 +76,11 @@ jobs:
     #build and install
     - name: windows build & install
       run: |
-
         cd $GITHUB_WORKSPACE
         
         mkdir -p build && cd build
         cmake .. -DTOOLS=ON -A x64
         cmake --build . --config RelWithDebInfo --parallel 4
-
       #git bash shell
       shell: bash
     - name: Create Upload File Name

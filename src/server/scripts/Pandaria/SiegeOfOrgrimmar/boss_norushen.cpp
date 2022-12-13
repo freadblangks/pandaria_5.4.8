@@ -916,8 +916,9 @@ class boss_amalgam_of_corruption : public CreatureScript
                     for (auto&& itr : choisePos)
                         if (invOrbPosType.find(itr)->second != 0 && std::find(choisePos.begin(), choisePos.end(), itr) != choisePos.end())
                             choisePos.erase(std::find(choisePos.begin(), choisePos.end(), itr));
-
-                    std::random_shuffle(choisePos.begin(), choisePos.end());
+                    std::random_device rd;
+                    std::mt19937 g(rd());
+                    std::shuffle(choisePos.begin(), choisePos.end(), g);
 
                     if (choisePos.size() > count)
                         choisePos.resize(count);
@@ -2041,7 +2042,7 @@ class spell_blind_hatred_periodic : public AuraScript
     }
 };
 
-class BlindHatredPredicate : public std::unary_function<Unit*, bool>
+class BlindHatredPredicate 
 {
     public:
         BlindHatredPredicate(Unit* const m_caster) : _caster(m_caster) { }
@@ -2150,7 +2151,7 @@ class spell_manifestation_unleash_corruption : public SpellScript
 };
 
 // we should hit only our owner in same phase with another challengers
-class TrialPhasePredicate : public std::unary_function<Unit*, bool>
+class TrialPhasePredicate 
 {
     public:
         TrialPhasePredicate(Creature* const m_caster) : _caster(m_caster) { }
