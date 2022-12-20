@@ -46,7 +46,6 @@ set(sources_Debugging Debugging/Errors.cpp Debugging/Errors.h)
 
 if (USE_COREPCH)
   set(shared_STAT_PCH_HDR PrecompiledHeaders/sharedPCH.h)
-  set(shared_STAT_PCH_SRC PrecompiledHeaders/sharedPCH.cpp)
 endif()
 
 set(shared_STAT_SRCS
@@ -65,48 +64,53 @@ set(shared_STAT_SRCS
 )
 
 include_directories(
-  ${CMAKE_BINARY_DIR}
-  ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Detour
-  ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Detour/Include
-  ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Recast
-  ${CMAKE_SOURCE_DIR}/dep/SFMT
-  ${CMAKE_SOURCE_DIR}/dep/sockets/include
-  ${CMAKE_SOURCE_DIR}/dep/utf8cpp
-  ${CMAKE_SOURCE_DIR}/src/server
-  ${CMAKE_CURRENT_SOURCE_DIR}
-  ${CMAKE_CURRENT_SOURCE_DIR}/Configuration
-  ${CMAKE_CURRENT_SOURCE_DIR}/Cryptography
-  ${CMAKE_CURRENT_SOURCE_DIR}/Cryptography/Authentication
-  ${CMAKE_CURRENT_SOURCE_DIR}/Database
-  ${CMAKE_CURRENT_SOURCE_DIR}/DataStores
-  ${CMAKE_CURRENT_SOURCE_DIR}/Debugging
-  ${CMAKE_CURRENT_SOURCE_DIR}/Dynamic
-  ${CMAKE_CURRENT_SOURCE_DIR}/Logging
-  ${CMAKE_CURRENT_SOURCE_DIR}/Packets
-  ${CMAKE_CURRENT_SOURCE_DIR}/Threading
-  ${CMAKE_CURRENT_SOURCE_DIR}/Utilities
-  
-  ${CMAKE_SOURCE_DIR}/src/server/game/Entities/Object
-  ${ACE_INCLUDE_DIR}
-  ${MYSQL_INCLUDE_DIR}
-  ${OPENSSL_INCLUDE_DIR}
+  PUBLIC
+    ${CMAKE_BINARY_DIR}
+  PRIVATE
+    ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Detour
+    ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Detour/Include
+    ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Recast
+    ${CMAKE_SOURCE_DIR}/dep/SFMT
+    ${CMAKE_SOURCE_DIR}/dep/sockets/include
+    ${CMAKE_SOURCE_DIR}/dep/utf8cpp
+    ${CMAKE_SOURCE_DIR}/src/server
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${CMAKE_CURRENT_SOURCE_DIR}/Configuration
+    ${CMAKE_CURRENT_SOURCE_DIR}/Cryptography
+    ${CMAKE_CURRENT_SOURCE_DIR}/Cryptography/Authentication
+    ${CMAKE_CURRENT_SOURCE_DIR}/Database
+    ${CMAKE_CURRENT_SOURCE_DIR}/DataStores
+    ${CMAKE_CURRENT_SOURCE_DIR}/Debugging
+    ${CMAKE_CURRENT_SOURCE_DIR}/Dynamic
+    ${CMAKE_CURRENT_SOURCE_DIR}/Logging
+    ${CMAKE_CURRENT_SOURCE_DIR}/Packets
+    ${CMAKE_CURRENT_SOURCE_DIR}/Threading
+    ${CMAKE_CURRENT_SOURCE_DIR}/Utilities  
+    ${CMAKE_SOURCE_DIR}/src/server/game/Entities/Object
+    ${ACE_INCLUDE_DIR}
+    ${MYSQL_INCLUDE_DIR}
+    ${OPENSSL_INCLUDE_DIR}
 )
 
 if (Boost_FOUND)
-  include_directories(${Boost_INCLUDE_DIRS})
+  include_directories(
+    PRIVATE
+      ${Boost_INCLUDE_DIRS}
+  )
 endif()
 
 add_library(shared STATIC
   ${shared_STAT_SRCS}
-  ${shared_STAT_PCH_SRC}
 )
 
 target_link_libraries(shared
-  sfmt
-  ${ACE_LIBRARY} 
+  PRIVATE
+    sfmt
 )
+#    ${ACE_LIBRARY}
+
 
 # Generate precompiled header
 if (USE_COREPCH)
-  target_precompile_headers(shared PUBLIC ${shared_STAT_PCH_HDR}) 
+  target_precompile_headers(shared PRIVATE ${shared_STAT_PCH_HDR}) 
 endif ()
