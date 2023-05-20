@@ -234,7 +234,7 @@ void WorldSession::SendTrainerList(uint64 guid, const std::string& strTitle, boo
             if (!tSpell->learnedSpell[i])
                 continue;
             if (!_player->IsSpellFitByClassAndRace(tSpell->learnedSpell[i]) ||
-                (tSpell->learnedSpell[i] == 40120 && _player->getClass() != CLASS_DRUID)) // Idk why it hasn't class mask
+                (tSpell->learnedSpell[i] == 40120 && _player->GetClass() != CLASS_DRUID)) // Idk why it hasn't class mask
             {
                 valid = false;
                 break;
@@ -411,7 +411,7 @@ void WorldSession::HandleGossipHelloOpcode(WorldPacket& recvData)
     recvData.ReadGuidMask(guid, 2, 4, 0, 3, 6, 7, 5, 1);
     recvData.ReadGuidBytes(guid, 4, 7, 1, 0, 5, 3, 6, 2);
 
-    Creature* unit = GetPlayer()->GetNPCIfCanInteractWith(guid, UNIT_NPC_FLAG_NONE);
+    Creature* unit = GetPlayer()->GetNPCIfCanInteractWith(guid, UNIT_NPC_FLAG_GOSSIP); // UNIT_NPC_FLAG_NONE
     if (!unit)
     {
         TC_LOG_DEBUG("network", "WORLD: HandleGossipHelloOpcode - Unit (GUID: %u) not found or you can not interact with him.", uint32(GUID_LOPART(guid)));
@@ -419,7 +419,7 @@ void WorldSession::HandleGossipHelloOpcode(WorldPacket& recvData)
     }
 
     // set faction visible if needed
-    if (FactionTemplateEntry const* factionTemplateEntry = sFactionTemplateStore.LookupEntry(unit->getFaction()))
+    if (FactionTemplateEntry const* factionTemplateEntry = sFactionTemplateStore.LookupEntry(unit->GetFaction()))
         _player->GetReputationMgr().SetVisible(factionTemplateEntry);
 
     GetPlayer()->RemoveAurasWithInterruptFlags(AURA_INTERRUPT_FLAG_TALK);
@@ -442,11 +442,13 @@ void WorldSession::HandleGossipHelloOpcode(WorldPacket& recvData)
         }
     }
 
+    _player->PlayerTalkClass->ClearMenus();
     if (!sScriptMgr->OnGossipHello(_player, unit))
     {
         _player->TalkedToCreature(unit->GetEntry(), unit->GetGUID());
         _player->PrepareGossipMenu(unit, unit->GetGossipMenuId(), true);
         _player->SendPreparedGossip(unit);
+        return;
     }
     if (!unit->AI()->OnGossipHello(_player)) // hack, add to support ScriptAI
     {
@@ -454,7 +456,6 @@ void WorldSession::HandleGossipHelloOpcode(WorldPacket& recvData)
         _player->PrepareGossipMenu(unit, unit->GetCreatureTemplate()->GossipMenuId, true);
         _player->SendPreparedGossip(unit);
     }    
-    unit->AI()->OnGossipHello(_player);
 }
 
 /*void WorldSession::HandleGossipSelectOptionOpcode(WorldPacket& recvData)
