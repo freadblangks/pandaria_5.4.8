@@ -124,7 +124,7 @@ class boss_anub_arak : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
                 if (instance)
@@ -323,7 +323,7 @@ class npc_impale_target : public CreatureScript
             void IsSummonedBy(Unit* /*summoner*/) override
             {
                 if (InstanceScript* instance = me->GetInstanceScript())
-                    if (Creature* anubarak = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_ANUBARAK)))
+                    if (Creature* anubarak = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_ANUBARAK)))
                         anubarak->AI()->JustSummoned(me);
 
                 DoCast(me, SPELL_IMPALE_VISUAL, true);

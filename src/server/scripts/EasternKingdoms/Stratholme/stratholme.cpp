@@ -106,7 +106,7 @@ public:
             Talk(SAY_ZAPPED);
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
     };
 
 };
@@ -143,18 +143,18 @@ public:
     {
         npc_restless_soulAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 Tagger;
+        ObjectGuid Tagger;
         uint32 Die_Timer;
         bool Tagged;
 
         void Reset() override
         {
-            Tagger = 0;
+            Tagger = ObjectGuid::Empty;
             Die_Timer = 5000;
             Tagged = false;
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void SpellHit(Unit* caster, const SpellInfo* spell) override
         {
@@ -234,7 +234,7 @@ public:
             Tagged = false;
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void SpellHit(Unit* /*caster*/, const SpellInfo* spell) override
         {

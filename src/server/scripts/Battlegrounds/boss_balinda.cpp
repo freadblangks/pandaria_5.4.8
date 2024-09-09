@@ -69,15 +69,15 @@ class npc_water_elemental : public CreatureScript
     {
         npc_water_elementalAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 balindaGUID;
+        ObjectGuid balindaGUID;
 
         void Reset() override
         {
             _events.Reset();
-            balindaGUID = 0;
+            balindaGUID = ObjectGuid::Empty;
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
             Talk(YELL_AGGRO);
             _events.ScheduleEvent(EVENT_CAST_SPELL_WATERBOLT, 3s);
@@ -146,7 +146,7 @@ struct boss_balinda : public ScriptedAI
         Initialize();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         Talk(YELL_AGGRO);
         _events.ScheduleEvent(EVENT_CAST_SPELL_ARCANE_EXPLOSION, randtime(5s, 15s));
@@ -158,7 +158,7 @@ struct boss_balinda : public ScriptedAI
         _events.ScheduleEvent(EVENT_BALINDA_RESET, 5s);
     }
 
-    void JustRespawned() override
+    void JustAppeared() override
     {
         Reset();
     }

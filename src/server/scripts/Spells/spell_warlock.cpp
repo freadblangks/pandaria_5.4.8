@@ -26,6 +26,7 @@
 #include "SpellAuraEffects.h"
 #include "Pet.h"
 #include "SpellHistory.h"
+#include "Random.h"
 
 enum WarlockSpells
 {
@@ -2790,7 +2791,7 @@ class spell_warl_soul_swap_aura : public AuraScript
     PrepareAuraScript(spell_warl_soul_swap_aura);
 
     std::vector<AuraData> auras;
-    uint64 targetGuid = 0;
+    uint64 targetGuid = ObjectGuid::Empty;
 
     void CopyDots(AuraEffect const*, AuraEffectHandleModes)
     {
@@ -4112,7 +4113,7 @@ class spell_warl_shadow_shield_aura : public AuraScript
     uint32 stack3 = 0;
     bool duringDropStacks = false;
 
-    bool Load()
+    bool Load() override
     {
         stack1 = GetSpellInfo()->Id == 115232 ? 115245 : 115241;
         stack2 = GetSpellInfo()->Id == 115232 ? 115246 : 115242;

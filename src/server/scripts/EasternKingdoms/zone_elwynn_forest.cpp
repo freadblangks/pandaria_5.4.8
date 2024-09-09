@@ -17,9 +17,12 @@
 
 #include "ScriptPCH.h"
 #include "../AI/SmartScripts/SmartAI.h"
+#include "Random.h"
 
 enum ElwynnForest
 {
+    SPELL_FIRE_EXTINGUISHER_AURA            = 80209,
+
     /// Infantries vs. Wolfs
     // Texts
     INFANTRY_HELP_YELL                      = 0,
@@ -192,20 +195,20 @@ struct npc_stormwind_infantry : public ScriptedAI
 {
     npc_stormwind_infantry(Creature* creature) : ScriptedAI(creature)
     {
-        me->SetUInt32Value(EUnitFields::UNIT_FIELD_NPC_EMOTESTATE, Emote::EMOTE_STATE_READY1H);
+        me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, Emote::EMOTE_STATE_READY1H);
     }
 
     uint32 tSeek, cYell,tYell;
 
-    void Reset()
+    void Reset() override
     {
-        me->SetUInt32Value(EUnitFields::UNIT_FIELD_NPC_EMOTESTATE, Emote::EMOTE_STATE_READY1H);
+        me->SetUInt32Value(UNIT_FIELD_NPC_EMOTESTATE, Emote::EMOTE_STATE_READY1H);
         tSeek = urand(1 * TimeConstants::IN_MILLISECONDS, 2 * TimeConstants::IN_MILLISECONDS);
         cYell = urand(0, 100);
         tYell = urand(5 * TimeConstants::IN_MILLISECONDS, 60 * TimeConstants::IN_MILLISECONDS);
     }
 
-    void DamageTaken(Unit* who, uint32& damage)
+    void DamageTaken(Unit* who, uint32& damage) override
     {
         if (who->GetTypeId() == TYPEID_PLAYER)
         {
@@ -260,14 +263,14 @@ struct npc_blackrock_battle_worg : public ScriptedAI
 
     uint32 tSeek, tGrowl;
 
-    void Reset()
+    void Reset() override
     {
         tSeek = urand(1 * TimeConstants::IN_MILLISECONDS, 2 * TimeConstants::IN_MILLISECONDS);
         tGrowl = urand(8 * TimeConstants::IN_MILLISECONDS + 500, 10 * TimeConstants::IN_MILLISECONDS);
         me->SetFaction(ElwynnForest::WORG_FACTION_RESTORE);
     }
 
-    void DamageTaken(Unit* who, uint32& damage)
+    void DamageTaken(Unit* who, uint32& damage) override
     {
         if (who->GetTypeId() == TYPEID_PLAYER)
         {
@@ -341,7 +344,7 @@ struct npc_brother_paxton : public ScriptedAI
     {
         _events.Reset();
 
-        me->SetFlag(EUnitFields::UNIT_FIELD_FLAGS, UnitFlags::UNIT_FLAG_IMMUNE_TO_PC | UnitFlags::UNIT_FLAG_IMMUNE_TO_NPC);
+        me->SetFlag(UNIT_FIELD_FLAGS, UnitFlags::UNIT_FLAG_IMMUNE_TO_PC | UnitFlags::UNIT_FLAG_IMMUNE_TO_NPC);
         DoCast(me, ElwynnForest::SPELL_FORTITUDE);
         me->InitializeReactState();
 
@@ -354,7 +357,7 @@ struct npc_brother_paxton : public ScriptedAI
         return;
     }
 
-    void MoveInLineOfSight(Unit* p_Who)
+    void MoveInLineOfSight(Unit* p_Who) override
     {
         if (me->GetDistance(p_Who) < 15.0f)
         {
@@ -371,7 +374,7 @@ struct npc_brother_paxton : public ScriptedAI
         }
     }
 
-    void EnterCombat(Unit* /*p_Who*/) override
+    void JustEngagedWith(Unit* /*p_Who*/) override
     {
         return;
     }
@@ -562,7 +565,7 @@ struct npc_blackrock_spy : public ScriptedAI
                     DoCast(me, SPELL_SPYGLASS);
     }
 
-    void EnterCombat(Unit* who)
+    void JustEngagedWith(Unit* who) override
     {
         if (who && who->GetTypeId() == TypeID::TYPEID_PLAYER)
             if (roll_chance_i(50))
@@ -584,7 +587,7 @@ struct npc_blackrock_invader : public ScriptedAI
 {
     npc_blackrock_invader(Creature* creature) : ScriptedAI(creature) { }
 
-    void EnterCombat(Unit* who)
+    void JustEngagedWith(Unit* who) override
     {
         if (who && who->GetTypeId() == TypeID::TYPEID_PLAYER)
             if (roll_chance_i(50))
@@ -608,7 +611,7 @@ struct npc_goblin_assassin : public ScriptedAI
             DoCast(SPELL_SNEAKING);
     }
 
-    void EnterCombat(Unit* who)
+    void JustEngagedWith(Unit* who) override
     {
         if (who && who->GetTypeId() == TypeID::TYPEID_PLAYER)
             if (roll_chance_i(50))
@@ -642,9 +645,9 @@ class npc_king_varian_wrynn : public CreatureScript
         {
             npc_king_varian_wrynnAI(Creature* creature) : SmartAI(creature) { }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
-                SmartAI::EnterCombat(who);
+                SmartAI::JustEngagedWith(who);
             }
 
             void UpdateAI(uint32 diff) override
@@ -677,7 +680,7 @@ class npc_varian_wrynn_alliance_way_quest : public CreatureScript
         {
             npc_varian_wrynn_alliance_way_questAI(Creature* creature) : ScriptedAI(creature) { }
 
-            uint64 summonerGUID;
+            ObjectGuid summonerGUID;
             uint32 delay;
 
             void IsSummonedBy(Unit* summoner) override
@@ -886,7 +889,7 @@ class npc_ayisa_jojo_alliance_way_quest : public CreatureScript
         {
             npc_ayisa_jojo_alliance_way_questAI(Creature* creature) : ScriptedAI(creature) { }
 
-            uint64 summonerGUID;
+            ObjectGuid summonerGUID;
             uint32 delay;
             uint8 point;
             bool follow;
@@ -1016,7 +1019,7 @@ struct npc_hogger : public ScriptedAI
             trigger_meat_guid = trigger_meat->GetGUID();
     }
 
-    void Reset()
+    void Reset() override
     {
         me->SetReactState(REACT_AGGRESSIVE);
         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC);
@@ -1024,7 +1027,7 @@ struct npc_hogger : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         if (urand(0, 9) < 3)
             Talk(ElwynnForest::SAY_AGGRO);
@@ -1178,7 +1181,7 @@ struct npc_hogger : public ScriptedAI
 
 private:
     EventMap events;
-    uint64 trigger_meat_guid;
+    ObjectGuid trigger_meat_guid;
     uint8 phase = 0;
 };
 
@@ -1198,12 +1201,28 @@ struct npc_minion_of_hogger : public ScriptedAI
     }
 };
 
+// 26391
+class quest_extinguishing_hope : public QuestScript
+{
+public:
+    quest_extinguishing_hope() : QuestScript("quest_extinguishing_hope") {}
+
+    void OnQuestStatusChange(Player* player, Quest const* /*quest*/, QuestStatus /*oldStatus*/, QuestStatus newStatus) override
+    {
+        if (newStatus == QUEST_STATUS_INCOMPLETE)
+            player->CastSpell(player, SPELL_FIRE_EXTINGUISHER_AURA, true);
+        else if (newStatus == QUEST_STATUS_REWARDED || newStatus == QUEST_STATUS_NONE)
+            player->RemoveAurasDueToSpell(SPELL_FIRE_EXTINGUISHER_AURA);
+    }
+};
+
 void AddSC_elwynn_forest()
 {
-    new creature_script<npc_stormwind_infantry>("npc_stormwind_infantry");
+
+    RegisterCreatureAI(npc_stormwind_infantry);
     new creature_script<npc_blackrock_battle_worg>("npc_blackrock_battle_worg");
-    new creature_script<npc_brother_paxton>("npc_brother_paxton");
-    new creature_script<npc_blackrock_spy>("npc_blackrock_spy");
+    RegisterCreatureAI(npc_brother_paxton);
+    RegisterCreatureAI(npc_blackrock_spy);
     new creature_script<npc_goblin_assassin>("npc_goblin_assassin");
     new creature_script<npc_blackrock_invader>("npc_blackrock_invader");
     new npc_king_varian_wrynn();
@@ -1212,4 +1231,5 @@ void AddSC_elwynn_forest()
     new spell_script<spell_summ_varian_alliance_way>("spell_summ_varian_alliance_way");
     new creature_script<npc_hogger>("npc_hogger");
     new creature_script<npc_minion_of_hogger>("npc_minion_of_hogger");
+    new quest_extinguishing_hope();
 }

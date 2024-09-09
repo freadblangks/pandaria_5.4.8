@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -81,7 +81,7 @@ void BattlegroundIC::HandlePlayerResurrect(Player* player)
         player->CastSpell(player, SPELL_OIL_REFINERY, true);
 }
 
-void BattlegroundIC::DoAction(uint32 action, uint64 var)
+void BattlegroundIC::DoAction(uint32 action, ObjectGuid var)
 {
     if (action != ACTION_TELEPORT_PLAYER_TO_TRANSPORT)
         return;
@@ -99,14 +99,15 @@ void BattlegroundIC::DoAction(uint32 action, uint64 var)
     player->m_movementInfo.transport.pos.m_positionX = info.GetPositionX();
     player->m_movementInfo.transport.pos.m_positionY = info.GetPositionY();
     player->m_movementInfo.transport.pos.m_positionZ = info.GetPositionZ();
-    player->m_movementInfo.transport.pos.m_orientation = info.GetOrientation();
+    player->m_movementInfo.transport.pos.SetOrientation(info.GetOrientation());
 
     if (Transport* transport = player->GetTransport())
     {
         WorldLocation dest;
         dest.m_mapId = GetMapId();
         dest.Relocate(player->m_movementInfo.transport.pos.GetPosition());
-        transport->CalculatePassengerPosition(dest.m_positionX, dest.m_positionY, dest.m_positionZ, &dest.m_orientation);
+        float m_orientation = dest.GetOrientation();
+        transport->CalculatePassengerPosition(dest.m_positionX, dest.m_positionY, dest.m_positionZ, &m_orientation);
         player->TeleportTo(dest, TELE_TO_NOT_LEAVE_TRANSPORT);
     }
 }
@@ -199,8 +200,8 @@ void BattlegroundIC::PostUpdateImpl(uint32 diff)
                     {
                         if (siege->IsAlive())
                         {
-                            if (siege->HasFlag(UNIT_FIELD_FLAGS,UNIT_FLAG_NOT_SELECTABLE|UNIT_FLAG_UNK_14|UNIT_FLAG_IMMUNE_TO_PC))
-                                // following sniffs the vehicle always has UNIT_FLAG_UNK_14
+                            if (siege->HasFlag(UNIT_FIELD_FLAGS,UNIT_FLAG_NOT_SELECTABLE|UNIT_FLAG_CANNOT_SWIM|UNIT_FLAG_IMMUNE_TO_PC))
+                                // following sniffs the vehicle always has UNIT_FLAG_CANNOT_SWIM
                                 siege->RemoveFlag(UNIT_FIELD_FLAGS,UNIT_FLAG_NOT_SELECTABLE|UNIT_FLAG_IMMUNE_TO_PC);
                         }
                         else
@@ -336,7 +337,7 @@ void BattlegroundIC::AddPlayer(Player* player)
         player->CastSpell(player,SPELL_OIL_REFINERY,true);
 }
 
-void BattlegroundIC::RemovePlayer(Player* player, uint64 /*guid*/, uint32 /*team*/)
+void BattlegroundIC::RemovePlayer(Player* player, ObjectGuid /*guid*/, uint32 /*team*/)
 {
     if (player)
     {
@@ -345,7 +346,7 @@ void BattlegroundIC::RemovePlayer(Player* player, uint64 /*guid*/, uint32 /*team
     }
 }
 
-void BattlegroundIC::HandleAreaTrigger(Player* player, uint32 trigger)
+void BattlegroundIC::HandleAreaTrigger(Player* player, uint32 trigger, bool /*entered*/)
 {
     // this is wrong way to implement these things. On official it done by gameobject spell cast.
     if (GetStatus() != STATUS_IN_PROGRESS)
@@ -366,7 +367,7 @@ void BattlegroundIC::HandleAreaTrigger(Player* player, uint32 trigger)
 
 void BattlegroundIC::UpdatePlayerScore(Player* player, uint32 type, uint32 value, bool doAddHonor)
 {
-    std::map<uint64, BattlegroundScore*>::iterator itr = PlayerScores.find(player->GetGUID());
+    std::map<ObjectGuid, BattlegroundScore*>::iterator itr = PlayerScores.find(player->GetGUID());
 
     if (itr == PlayerScores.end())                         // player not found...
         return;
@@ -560,11 +561,11 @@ void BattlegroundIC::EndBattleground(uint32 winner)
 void BattlegroundIC::RealocatePlayers(ICNodePointType nodeType)
 {
     // Those who are waiting to resurrect at this node are taken to the closest own node's graveyard
-    std::vector<uint64> ghost_list = m_ReviveQueue[BgCreatures[BG_IC_NPC_SPIRIT_GUIDE_1+nodeType-2]];
+    std::vector<ObjectGuid> ghost_list = m_ReviveQueue[BgCreatures[BG_IC_NPC_SPIRIT_GUIDE_1+nodeType-2]];
     if (!ghost_list.empty())
     {
         WorldSafeLocsEntry const* closestGrave = NULL;
-        for (std::vector<uint64>::const_iterator itr = ghost_list.begin(); itr != ghost_list.end(); ++itr)
+        for (std::vector<ObjectGuid>::const_iterator itr = ghost_list.begin(); itr != ghost_list.end(); ++itr)
         {
             Player* player = ObjectAccessor::FindPlayer(*itr);
             if (!player)
@@ -981,7 +982,7 @@ void BattlegroundIC::HandleCapturedNodes(ICNodePoint* nodePoint, bool recapture)
 
                     if (Creature* siegeEngine = GetBGCreature(siegeType))
                     {
-                        siegeEngine->SetFlag(UNIT_FIELD_FLAGS,UNIT_FLAG_NOT_SELECTABLE|UNIT_FLAG_UNK_14|UNIT_FLAG_IMMUNE_TO_PC);
+                        siegeEngine->SetFlag(UNIT_FIELD_FLAGS,UNIT_FLAG_NOT_SELECTABLE|UNIT_FLAG_CANNOT_SWIM|UNIT_FLAG_IMMUNE_TO_PC);
                         siegeEngine->SetFaction(BG_IC_Factions[(nodePoint->faction == TEAM_ALLIANCE ? 0 : 1)]);
                         if (siegeEngine->GetVehicleKit())
                         {

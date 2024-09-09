@@ -116,13 +116,13 @@ class boss_high_king_maulgar : public CreatureScript
                 instance->SetBossState(DATA_MAULGAR, DONE);
             }
     
-            void DoAction(int32 actionId)
+            void DoAction(int32 actionId) override
             {
                 if (actionId == ACTION_ADD_DEATH)
                     Talk(SAY_OGRE_DEATH);
             }
     
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat();
                 instance->SetBossState(DATA_MAULGAR, IN_PROGRESS);
@@ -241,7 +241,7 @@ class boss_olm_the_summoner : public CreatureScript
                 }
             }
     
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat();
                 instance->SetBossState(DATA_MAULGAR, IN_PROGRESS);
@@ -249,7 +249,7 @@ class boss_olm_the_summoner : public CreatureScript
     
             void JustDied(Unit* /*killer*/) override
             {
-                if (Creature* maulgar = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_MAULGAR)))
+                if (Creature* maulgar = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_MAULGAR)))
                     maulgar->AI()->DoAction(ACTION_ADD_DEATH);
     
                 instance->SetBossState(DATA_MAULGAR, DONE);
@@ -324,7 +324,7 @@ class boss_kiggler_the_crazed : public CreatureScript
                 instance->SetBossState(DATA_MAULGAR, NOT_STARTED);
             }
     
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat();
                 instance->SetBossState(DATA_MAULGAR, IN_PROGRESS);
@@ -332,7 +332,7 @@ class boss_kiggler_the_crazed : public CreatureScript
     
             void JustDied(Unit* /*killer*/) override
             {
-                if (Creature* maulgar = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_MAULGAR)))
+                if (Creature* maulgar = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_MAULGAR)))
                     maulgar->AI()->DoAction(ACTION_ADD_DEATH);
     
                 instance->SetBossState(DATA_MAULGAR, DONE);
@@ -410,7 +410,7 @@ class boss_blindeye_the_seer : public CreatureScript
                 instance->SetBossState(DATA_MAULGAR, NOT_STARTED);
             }
     
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat();
                 instance->SetBossState(DATA_MAULGAR, IN_PROGRESS);
@@ -418,7 +418,7 @@ class boss_blindeye_the_seer : public CreatureScript
     
             void JustDied(Unit* /*killer*/) override
             {
-                if (Creature* maulgar = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_MAULGAR)))
+                if (Creature* maulgar = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_MAULGAR)))
                     maulgar->AI()->DoAction(ACTION_ADD_DEATH);
     
                 instance->SetBossState(DATA_MAULGAR, DONE);
@@ -487,7 +487,7 @@ class boss_krosh_firehand : public CreatureScript
                 instance->SetBossState(DATA_MAULGAR, NOT_STARTED);
             }
     
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat();
                 instance->SetBossState(DATA_MAULGAR, IN_PROGRESS);
@@ -495,7 +495,7 @@ class boss_krosh_firehand : public CreatureScript
     
             void JustDied(Unit* /*killer*/) override
             {
-                if (Creature* maulgar = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_MAULGAR)))
+                if (Creature* maulgar = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_MAULGAR)))
                     maulgar->AI()->DoAction(ACTION_ADD_DEATH);
     
                 instance->SetBossState(DATA_MAULGAR, DONE);

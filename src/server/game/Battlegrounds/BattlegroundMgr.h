@@ -22,7 +22,6 @@
 #include "DBCEnums.h"
 #include "Battleground.h"
 #include "BattlegroundQueue.h"
-#include <ace/Singleton.h>
 
 typedef std::map<uint32, Battleground*> BattlegroundContainer;
 typedef std::set<uint32> BattlegroundClientIdsContainer;
@@ -63,29 +62,30 @@ struct BattlegroundData
 struct ArenaGameStatistic
 {
     uint32 ArenaType;
-    std::vector<PreparedStatement*> Data;
+    std::vector<LoginDatabasePreparedStatement*> Data;
 };
 
 class BattlegroundMgr
 {
-    friend class ACE_Singleton<BattlegroundMgr, ACE_Null_Mutex>;
 
     private:
         BattlegroundMgr();
         ~BattlegroundMgr();
 
     public:
+        static BattlegroundMgr* instance();
+
         void Update(uint32 diff);
 
         /* Packet Building */
-        void BuildPlayerJoinedBattlegroundPacket(WorldPacket* data, uint64 guid);
-        void BuildPlayerLeftBattlegroundPacket(WorldPacket* data, uint64 guid);
+        void BuildPlayerJoinedBattlegroundPacket(WorldPacket* data, ObjectGuid guid);
+        void BuildPlayerLeftBattlegroundPacket(WorldPacket* data, ObjectGuid guid);
         void BuildBattlegroundListPacket(WorldPacket* data, ObjectGuid guid, Player* player, BattlegroundTypeId bgTypeId);
         void BuildStatusFailedPacket(WorldPacket* data, Battleground* bg, Player* pPlayer, uint8 QueueSlot, GroupJoinBattlegroundResult result);
         void BuildUpdateWorldStatePacket(WorldPacket* data, uint32 field, uint32 value);
         void BuildPvpLogDataPacket(WorldPacket* data, Battleground* bg);
         void BuildBattlegroundStatusPacket(WorldPacket* data, Battleground* bg, Player* player, uint8 queueSlot, uint8 statusId, uint32 time1, uint32 time2, uint8 arenaType);
-        void SendAreaSpiritHealerQueryOpcode(Player* player, Battleground* bg, uint64 guid);
+        void SendAreaSpiritHealerQueryOpcode(Player* player, Battleground* bg, ObjectGuid guid);
 
         /* Battlegrounds */
         Battleground* GetBattlegroundThroughClientInstance(uint32 instanceId, BattlegroundTypeId bgTypeId);
@@ -139,10 +139,10 @@ class BattlegroundMgr
             return BATTLEGROUND_WS;
         }
 
-        void ApplyDeserter(uint64 guid, uint32 duration);
+        void ApplyDeserter(ObjectGuid guid, uint32 duration);
 
         void EnqueueNewGameStat(ArenaGameStatistic const& stat);
-        void PrepareNewGameStat(SQLTransaction& trans, ArenaGameStatistic const& stat, uint32 id);
+        void PrepareNewGameStat(LoginDatabaseTransaction trans, ArenaGameStatistic const& stat, uint32 id);
 
         SoloQueue& GetSoloQueue() const { return static_cast<SoloQueue&>(*m_battlegroundQueues[BATTLEGROUND_QUEUE_SOLO]); }
 
@@ -179,5 +179,5 @@ class BattlegroundMgr
         bool m_gameStatQueueInProcess = false;
 };
 
-#define sBattlegroundMgr ACE_Singleton<BattlegroundMgr, ACE_Null_Mutex>::instance()
+#define sBattlegroundMgr BattlegroundMgr::instance()
 #endif

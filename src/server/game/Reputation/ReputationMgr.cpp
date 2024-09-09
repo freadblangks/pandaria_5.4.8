@@ -40,6 +40,8 @@ uint32 ReputationRankStrIndex(ReputationRank rank)
 }
 
 const int32 ReputationMgr::PointsInRank[MAX_REPUTATION_RANK] = {36000, 3000, 3000, 3000, 6000, 12000, 21000, 1000};
+const int32 ReputationMgr::Reputation_Cap = 42999;
+const int32 ReputationMgr::Reputation_Bottom = -42000;
 
 ReputationRank ReputationMgr::ReputationToRank(int32 standing)
 {
@@ -426,10 +428,6 @@ bool ReputationMgr::SetOneFactionReputation(FactionEntry const* factionEntry, fl
         _player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GAIN_REVERED_REPUTATION, factionEntry->ID);
         _player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_GAIN_HONORED_REPUTATION, factionEntry->ID);
 
-        if (new_rank == REP_EXALTED && old_rank != REP_EXALTED)
-            if (projectMemberInfo* info = _player->GetSession()->GetprojectMemberInfo())
-                info->Notify(_player, projectMemberInfo::Notification::ReputationRank);
-
         return true;
     }
     return false;
@@ -613,19 +611,19 @@ void ReputationMgr::LoadFromDB(PreparedQueryResult result)
     }
 }
 
-void ReputationMgr::SaveToDB(SQLTransaction& trans)
+void ReputationMgr::SaveToDB(CharacterDatabaseTransaction trans)
 {
     for (FactionStateList::iterator itr = _factions.begin(); itr != _factions.end(); ++itr)
     {
         if (itr->second.needSave)
         {
-            PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CHAR_REPUTATION_BY_FACTION);
-            stmt->setUInt32(0, _player->GetGUIDLow());
+            CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CHAR_REPUTATION_BY_FACTION);
+            stmt->setUInt32(0, _player->GetGUID().GetCounter());
             stmt->setUInt16(1, uint16(itr->second.ID));
             trans->Append(stmt);
 
             stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_CHAR_REPUTATION_BY_FACTION);
-            stmt->setUInt32(0, _player->GetGUIDLow());
+            stmt->setUInt32(0, _player->GetGUID().GetCounter());
             stmt->setUInt16(1, uint16(itr->second.ID));
             stmt->setFloat(2, itr->second.Standing);
             stmt->setUInt16(3, uint16(itr->second.Flags));

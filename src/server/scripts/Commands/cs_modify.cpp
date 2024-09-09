@@ -61,6 +61,7 @@ public:
             { "money",      SEC_GAMEMASTER, false,  &HandleModifyMoneyCommand,      },
             { "mount",      SEC_GAMEMASTER, false,  &HandleModifyMountCommand,      },
             { "phase",      SEC_GAMEMASTER, false,  &HandleModifyPhaseCommand,      },
+            { "phaseid",    SEC_GAMEMASTER, false,  &HandleModifyPhaseIDCommand,    },
             { "rage",       SEC_GAMEMASTER, false,  &HandleModifyRageCommand,       },
             { "reputation", SEC_GAMEMASTER, false,  &HandleModifyRepCommand,        },
             { "runicpower", SEC_GAMEMASTER, false,  &HandleModifyRunicPowerCommand, },
@@ -105,7 +106,7 @@ public:
 
         if (Player* player = target->ToPlayer())
         {
-            if (handler->HasLowerSecurity(player, 0))
+            if (handler->HasLowerSecurity(player, ObjectGuid::Empty))
                 return false;
 
             handler->PSendSysMessage(LANG_YOU_CHANGE_HP, handler->GetNameLink(player).c_str(), hp, hpm);
@@ -147,7 +148,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         handler->PSendSysMessage(LANG_YOU_CHANGE_MANA, handler->GetNameLink(target).c_str(), mana, manam);
@@ -196,7 +197,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         handler->PSendSysMessage(LANG_YOU_CHANGE_ENERGY, handler->GetNameLink(target).c_str(), energy/10, energym/10);
@@ -247,7 +248,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         handler->PSendSysMessage(LANG_YOU_CHANGE_RAGE, handler->GetNameLink(target).c_str(), rage/10, ragem/10);
@@ -316,7 +317,7 @@ public:
             uint32 flag      = target->GetUInt32Value(UNIT_FIELD_FLAGS);
             uint32 npcflag   = target->GetUInt32Value(UNIT_FIELD_NPC_FLAGS);
             uint32 dyflag    = target->GetUInt32Value(OBJECT_FIELD_DYNAMIC_FLAGS);
-            handler->PSendSysMessage(LANG_CURRENT_FACTION, target->GetGUIDLow(), factionid, flag, npcflag, dyflag);
+            handler->PSendSysMessage(LANG_CURRENT_FACTION, target->GetGUID().GetCounter(), factionid, flag, npcflag, dyflag);
             return true;
         }
 
@@ -352,7 +353,7 @@ public:
             return false;
         }
 
-        handler->PSendSysMessage(LANG_YOU_CHANGE_FACTION, target->GetGUIDLow(), factionid, flag, npcflag, dyflag);
+        handler->PSendSysMessage(LANG_YOU_CHANGE_FACTION, target->GetGUID().GetCounter(), factionid, flag, npcflag, dyflag);
 
         target->SetFaction(factionid);
         target->SetUInt32Value(UNIT_FIELD_FLAGS, flag);
@@ -401,7 +402,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         handler->PSendSysMessage(LANG_YOU_CHANGE_SPELLFLATID, spellflatid, val, mark, handler->GetNameLink(target).c_str());
@@ -442,7 +443,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         std::string targetNameLink = handler->GetNameLink(target);
@@ -490,7 +491,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         std::string targetNameLink = handler->GetNameLink(target);
@@ -535,7 +536,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         std::string targetNameLink = handler->GetNameLink(target);
@@ -580,7 +581,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         std::string targetNameLink = handler->GetNameLink(target);
@@ -625,7 +626,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         handler->PSendSysMessage(LANG_YOU_CHANGE_FLY_SPEED, FSpeed, handler->GetNameLink(target).c_str());
@@ -662,7 +663,7 @@ public:
         if (Player* player = target->ToPlayer())
         {
             // check online security
-            if (handler->HasLowerSecurity(player, 0))
+            if (handler->HasLowerSecurity(player, ObjectGuid::Empty))
                 return false;
 
             handler->PSendSysMessage(LANG_YOU_CHANGE_SIZE, Scale, handler->GetNameLink(player).c_str());
@@ -910,7 +911,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         handler->PSendSysMessage(LANG_YOU_GIVE_MOUNT, handler->GetNameLink(target).c_str());
@@ -922,20 +923,45 @@ public:
 
         ObjectGuid guid = target->GetGUID();
         WorldPacket data(SMSG_MOVE_SET_RUN_SPEED, (8+4+1+4));
-        data.WriteGuidMask(guid, 1, 7, 4, 2, 5, 3, 6, 0);
-        data.WriteGuidBytes(guid, 1);
+        data.WriteBit(guid[1]);
+data.WriteBit(guid[7]);
+data.WriteBit(guid[4]);
+data.WriteBit(guid[2]);
+data.WriteBit(guid[5]);
+data.WriteBit(guid[3]);
+data.WriteBit(guid[6]);
+data.WriteBit(guid[0]);
+        data.WriteByteSeq(guid[1]);
         data << uint32(0);
-        data.WriteGuidBytes(guid, 7, 3, 0);
+        data.WriteByteSeq(guid[7]);
+data.WriteByteSeq(guid[3]);
+data.WriteByteSeq(guid[0]);
         data << float(speed);
-        data.WriteGuidBytes(guid, 2, 4, 6, 5);
+        data.WriteByteSeq(guid[2]);
+data.WriteByteSeq(guid[4]);
+data.WriteByteSeq(guid[6]);
+data.WriteByteSeq(guid[5]);
         target->SendMessageToSet(&data, true);
 
         data.Initialize(SMSG_MOVE_SET_SWIM_SPEED, (8+4+4));
-        data.WriteGuidMask(guid, 5, 0, 6, 3, 7, 2, 4, 1);
+        data.WriteBit(guid[5]);
+data.WriteBit(guid[0]);
+data.WriteBit(guid[6]);
+data.WriteBit(guid[3]);
+data.WriteBit(guid[7]);
+data.WriteBit(guid[2]);
+data.WriteBit(guid[4]);
+data.WriteBit(guid[1]);
         data << uint32(0);
-        data.WriteGuidBytes(guid, 1, 3);
+        data.WriteByteSeq(guid[1]);
+data.WriteByteSeq(guid[3]);
         data << float(speed);
-        data.WriteGuidBytes(guid, 6, 7, 0, 5, 2, 4);
+        data.WriteByteSeq(guid[6]);
+data.WriteByteSeq(guid[7]);
+data.WriteByteSeq(guid[0]);
+data.WriteByteSeq(guid[5]);
+data.WriteByteSeq(guid[2]);
+data.WriteByteSeq(guid[4]);
         target->SendMessageToSet(&data, true);
 
         return true;
@@ -956,7 +982,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         int64 moneyToAdd = 0;
@@ -1027,7 +1053,7 @@ public:
         }
 
         // check online security
-        if (target->GetTypeId() == TYPEID_PLAYER && handler->HasLowerSecurity(target->ToPlayer(), 0))
+        if (target->GetTypeId() == TYPEID_PLAYER && handler->HasLowerSecurity(target->ToPlayer(), ObjectGuid::Empty))
             return false;
 
         char* pField = strtok((char*)args, " ");
@@ -1081,7 +1107,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         int32 amount = (uint32)atoi(args);
@@ -1122,7 +1148,7 @@ public:
         }
 
         // check online security
-        if (handler->HasLowerSecurity(target, 0))
+        if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
             return false;
 
         char* factionTxt = handler->extractKeyFromLink((char*)args, "Hfaction");
@@ -1221,7 +1247,7 @@ public:
             target = handler->GetSession()->GetPlayer();
 
         // check online security
-        else if (target->GetTypeId() == TYPEID_PLAYER && handler->HasLowerSecurity(target->ToPlayer(), 0))
+        else if (target->GetTypeId() == TYPEID_PLAYER && handler->HasLowerSecurity(target->ToPlayer(), ObjectGuid::Empty))
             return false;
 
         target->SetDisplayId(display_id);
@@ -1247,6 +1273,23 @@ public:
         }
         else
             handler->GetSession()->GetPlayer()->GetPhaseMgr().SetCustomPhase(phasemask);
+
+        return true;
+    }
+
+    //set temporary phaseid for player
+    static bool HandleModifyPhaseIDCommand(ChatHandler* handler, const char* args)
+    {
+        if (!*args)
+            return false;
+
+        uint32 phase = (uint32)atoi((char*)args);
+
+        Unit* target = handler->getSelectedUnit();
+        if (!target)
+            target = handler->GetSession()->GetPlayer();
+
+        target->SetPhased(phase, true, !target->IsPhased(phase));
 
         return true;
     }
@@ -1331,7 +1374,7 @@ public:
             target = handler->GetSession()->GetPlayer();
 
         // check online security
-        else if (target->GetTypeId() == TYPEID_PLAYER && handler->HasLowerSecurity(target->ToPlayer(), 0))
+        else if (target->GetTypeId() == TYPEID_PLAYER && handler->HasLowerSecurity(target->ToPlayer(), ObjectGuid::Empty))
             return false;
 
         target->DeMorph();

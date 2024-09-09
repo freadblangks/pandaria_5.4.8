@@ -50,9 +50,9 @@ LfgGuidSet const& Queuer::GetGroupPlayers() const
     return sLFGMgr->GetPlayers(GetGUID());
 }
 
-bool Queuer::Contains(guid_t playerGUID) const
+bool Queuer::Contains(ObjectGuid playerGUID) const
 {
-    ASSERT(IS_PLAYER_GUID(playerGUID));
+    ASSERT(playerGUID.IsPlayer());
     if (IsPlayer())
         return GetGUID() == playerGUID;
 
@@ -81,12 +81,12 @@ Queuer::Compatibility Queuer::CheckCompatibilityWith(Queuer const& other, Dungeo
 
     return Compatibility::OK;
 }
-
+  
 void Queuer::OutDebug(std::ostringstream& ss, QueueManager const* manager, Queuer const group) const
 {
     if (IsGroup())
     {
-        ss << "G-" << GUID_LOPART(GetGUID()) << "[";
+        ss << "G-" << GetGUID().GetCounter() << "[";
         uint32 i = 0;
         for (auto&& guid : GetGroupPlayers())
         {
@@ -97,7 +97,7 @@ void Queuer::OutDebug(std::ostringstream& ss, QueueManager const* manager, Queue
     }
     else
     {
-        if (ObjectAccessor::FindPlayerInOrOutOfWorld(GetGUID()))
+        if (ObjectAccessor::FindPlayer(GetGUID()))
             ss << sWorld->GetCharacterNameData(GetGUID())->m_name;
         else
             ss << "|cFFFF0000" << sWorld->GetCharacterNameData(GetGUID())->m_name << "<OFFLINE>|r";
@@ -155,7 +155,11 @@ bool Bucket::CanAdd(Queuer const& queuer, LfgRolesMap& assignedRoles) const
         check = LFGMgr::CheckDpsOnly;
 
     if (!check(assignedRoles, m_queue->GetRoleSlots(PLAYER_ROLE_TANK), m_queue->GetRoleSlots(PLAYER_ROLE_HEALER), m_queue->GetRoleSlots(PLAYER_ROLE_DAMAGE)))
+    {
+        if (sWorld->getBoolConfig(CONFIG_LFG_SOLO))
+            return true;
         return false;
+    }
 
     return true;
 }
@@ -165,14 +169,27 @@ void Bucket::Add(Queuer const& queuer)
     LfgRolesMap assignedRoles;
     ASSERT(CanAdd(queuer, assignedRoles));
 
-    auto reassignRoles = [this, &assignedRoles](Queuer const& queuer, Queuer::guid_t playerGUID)
+    auto reassignRoles = [this, &assignedRoles](Queuer const& queuer, ObjectGuid playerGUID)
     {
         switch (m_queuerPlayerRoles[playerGUID] = (LfgRoles)(assignedRoles[playerGUID] & ~PLAYER_ROLE_LEADER))
         {
-            case PLAYER_ROLE_TANK:   m_tanks.push_back(queuer); break;
-            case PLAYER_ROLE_HEALER: m_healers.push_back(queuer); break;
-            case PLAYER_ROLE_DAMAGE: m_damage.push_back(queuer); break;
+            case PLAYER_ROLE_TANK:   
+                if (sWorld->getBoolConfig(CONFIG_LFG_SOLO))
+                    m_damage.push_back(queuer); 
+                else
+                    m_tanks.push_back(queuer); 
+                break;
+            case PLAYER_ROLE_HEALER: 
+                if (sWorld->getBoolConfig(CONFIG_LFG_SOLO))
+                    m_damage.push_back(queuer); 
+                else                
+                    m_healers.push_back(queuer); 
+                break;
+            case PLAYER_ROLE_DAMAGE: 
+                m_damage.push_back(queuer); 
+                break;
             default: ASSERT(false);
+                
         }
     };
 
@@ -358,7 +375,7 @@ void DungeonQueue::MakeProposals(ProposalList& proposals)
             for (auto&& player : bucket.GetRoles())
                 proposal.players[player.first].role = player.second;
 
-            std::vector<Queuer::guid_t> potentialLeaders;
+            std::vector<ObjectGuid> potentialLeaders;
             potentialLeaders.reserve(GetGroupSize());
             for (auto&& queuer : bucket.GetQueuers())
             {
@@ -420,26 +437,26 @@ void DungeonQueue::OutDebug(std::ostringstream& ss, bool client) const
 #pragma endregion
 
 #pragma region QueueManager
-QueueManager::QueuerData::QueuerData(Queuer::guid_t guid, uint32 queueId, time_t joinTime, LfgDungeonSet const& dungeons, LfgRolesMap const& roles)
+QueueManager::QueuerData::QueuerData(ObjectGuid guid, uint32 queueId, time_t joinTime, LfgDungeonSet const& dungeons, LfgRolesMap const& roles)
     : GUID(guid), QueueId(queueId), JoinTime(joinTime), Dungeons(dungeons), Roles(roles)
 {
-    if (IS_PLAYER_GUID(guid))
+    if (guid.IsPlayer())
     {
         Players.insert(guid);
-        if (Player* player = ObjectAccessor::FindPlayerInOrOutOfWorld(guid))
+        if (Player* player = ObjectAccessor::FindPlayer(guid))
             for (auto&& social : player->GetSocial()->GetSocialMap())
                 if (social.second.Flags & SOCIAL_FLAG_IGNORED)
-                    Ignores.insert(MAKE_NEW_GUID(social.first, 0, HIGHGUID_PLAYER));
+                    Ignores.insert(social.first);
     }
     else
     {
         for (auto&& member : sLFGMgr->GetPlayers(guid))
         {
             Players.insert(member);
-            if (Player* player = ObjectAccessor::FindPlayerInOrOutOfWorld(member))
+            if (Player* player = ObjectAccessor::FindPlayer(member))
                 for (auto&& social : player->GetSocial()->GetSocialMap())
                     if (social.second.Flags & SOCIAL_FLAG_IGNORED)
-                        Ignores.insert(MAKE_NEW_GUID(social.first, 0, HIGHGUID_PLAYER));
+                        Ignores.insert(social.first);
         }
     }
 }
@@ -472,6 +489,13 @@ QueueManager::QueueManager()
         }
         if (map && map->IsScenario() && scenarioDebug)
             dps = 1;
+
+        if (sWorld->getBoolConfig(CONFIG_LFG_SOLO))
+        {
+            tank = 0;
+            heal = 0;
+            dps = 1;
+        }
 
         m_queues.emplace(dungeon->ID, DungeonQueue{ this, dungeon->ID, tank, heal, dps, raid });
     }
@@ -697,7 +721,7 @@ void QueueManager::UpdateShortageData()
         uint32 tanksCount = 0, healersCount = 0, dpsCount = 0;
         for (auto&& itr : m_queuerData)
         {
-            uint64 guid = itr.first;
+            ObjectGuid guid = itr.first;
             uint32 queueId = itr.second.QueueId;
             if (sLFGMgr->GetState(guid, queueId) != LFG_STATE_QUEUED)
                 continue;
@@ -738,7 +762,7 @@ void QueueManager::UpdateShortageData()
                     continue;
             }
 
-            if (IS_GROUP_GUID(guid))
+            if (guid.IsGroup())
             {
                 LfgGuidSet const& members = sLFGMgr->GetPlayers(guid);
                 for (LfgGuidSet::const_iterator mitr = members.begin(); mitr != members.end(); ++mitr)

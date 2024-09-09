@@ -18,7 +18,6 @@
 #ifndef BATTLE_PAY_MGR_H
 #define BATTLE_PAY_MGR_H
 
-#include <ace/Singleton.h>
 #include "Common.h"
 #include "Opcodes.h"
 #include "WorldSession.h"
@@ -249,7 +248,7 @@ struct BattlePayShopEntryLocale
 
 struct PurchaseInfo
 {
-    PurchaseInfo() : Session(nullptr), SelectedPlayer(0), PurchaseId(0), ProductId(0), PurchaseStatus(0), ResultCode(0), ClientToken(0), ServerToken(0), Buyed(false) { }
+    PurchaseInfo() : Session(nullptr), SelectedPlayer(ObjectGuid::Empty), PurchaseId(0), ProductId(0), PurchaseStatus(0), ResultCode(0), ClientToken(0), ServerToken(0), Buyed(false) { }
 
     PurchaseInfo(WorldSession* session, ObjectGuid selectedPlayer, uint64 purchaseId, uint32 productId, uint32 purchaseStatus, uint32 resultCode, uint32 clientToken, uint32 serverToken, bool buyed)
         : Session(session), SelectedPlayer(selectedPlayer), PurchaseId(purchaseId), ProductId(productId), PurchaseStatus(purchaseStatus), ResultCode(resultCode), ClientToken(clientToken), ServerToken(serverToken), Buyed(buyed) { }
@@ -278,11 +277,14 @@ typedef std::unordered_map<uint32, BattlePayShopEntryLocale> BattlePayShopEntryL
 
 class BattlePayMgr
 {
-    friend class ACE_Singleton<BattlePayMgr, ACE_Null_Mutex>;
+
+    private:
+         BattlePayMgr();
+        ~BattlePayMgr();       
 
     public:
-        BattlePayMgr();
-        ~BattlePayMgr();
+
+        static BattlePayMgr* instance();
 
         void SendPointsBalance(WorldSession* session);
         void UpdatePointsBalance(WorldSession* session, uint64 points);
@@ -355,6 +357,6 @@ class BattlePayMgr
         void LoadEntryLocalesFromDb();
 };
 
-#define sBattlePayMgr ACE_Singleton<BattlePayMgr, ACE_Null_Mutex>::instance()
+#define sBattlePayMgr BattlePayMgr::instance()
 
 #endif

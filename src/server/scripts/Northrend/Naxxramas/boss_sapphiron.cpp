@@ -80,7 +80,7 @@ enum Misc
     MAX_FROST_RESISTANCE    = 100
 };
 
-typedef std::map<uint64, uint64> IceBlockMap;
+typedef std::map<ObjectGuid, ObjectGuid> IceBlockMap;
 
 class boss_sapphiron : public CreatureScript
 {
@@ -120,9 +120,9 @@ class boss_sapphiron : public CreatureScript
                 me->GetMap()->SetWorldState(WORLDSTATE_HUNDRED_CLUB, 1); // no longer required resist - cuz resistance not exist anymore
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
 
                 me->CastSpell(me, SPELL_FROST_AURA, true);
 
@@ -312,7 +312,7 @@ class boss_sapphiron : public CreatureScript
                                 {
                                     std::vector<Unit*>::const_iterator itr = targets.begin();
                                     advance(itr, rand()%targets.size());
-                                    _iceblocks.insert(std::make_pair((*itr)->GetGUID(), 0));
+                                    _iceblocks.insert(std::make_pair((*itr)->GetGUID(), ObjectGuid::Empty));
                                     DoCast(*itr, SPELL_ICEBOLT);
                                     --_iceboltCount;
                                 }

@@ -164,146 +164,6 @@ bool BattlegroundQueue::SelectionPool::AddGroup(GroupQueueInfo* ginfo, uint32 de
 /***               BATTLEGROUND QUEUES                 ***/
 /*********************************************************/
 
-bool QueueAnnounceContext::IsEnabled(BattlegroundTypeId bgTypeId, bool isRated, bool isSolo)
-{
-    if (BattlegroundMgr::IsArenaType(bgTypeId))
-        return isRated && sWorld->getBoolConfig(isSolo ? CONFIG_ICORE_QUEUE_ANNOUNCE_ARENA_SOLO : CONFIG_ICORE_QUEUE_ANNOUNCE_ARENA);
-    return sWorld->getBoolConfig(CONFIG_ICORE_QUEUE_ANNOUNCE_BATTLEGROUND);
-}
-
-void QueueAnnounceContext::Announce() const
-{
-    if (!IsEnabled(GroupInfo.BgTypeId, GroupInfo.IsRated, IsSolo))
-        return;
-
-    bool isArena = BattlegroundMgr::IsArenaType(GroupInfo.BgTypeId);
-    Battleground* bg = isArena ? nullptr : sBattlegroundMgr->GetBattlegroundTemplate(GroupInfo.BgTypeId);
-    PvPDifficultyEntry const* bracket = bg ? GetBattlegroundBracketById(bg->GetMapId(), BracketId) : nullptr;
-    auto builder = [this, isArena, bg, bracket](std::vector<WorldPacket*>& packets, LocaleConstant locale)
-    {
-        std::string text;
-        if (isArena)
-        {
-            switch (GroupInfo.ArenaType)
-            {
-                case ARENA_TYPE_2v2:
-                case ARENA_TYPE_3v3:
-                case ARENA_TYPE_5v5:
-                    if (IsSolo)
-                    {
-                        //[Solo]: joined with %u MMR, %u %u in queue
-                        text = Format(sObjectMgr->GetTrinityString(SoloSpec == SoloQueueRole::Healer ? LANG_QUEUE_ANNOUNCE_ARENA_SOLO_H : LANG_QUEUE_ANNOUNCE_ARENA_SOLO_D, locale),
-                            GroupInfo.ArenaMatchmakerRating,
-                            QueuedA, QueuedH);
-                    }
-                    else
-                    {
-                        //[%uv%u]: Team joined with %u MMR, %u teams in queue
-                        text = Format(sObjectMgr->GetTrinityString(LANG_QUEUE_ANNOUNCE_ARENA, locale),
-                            (uint32)GroupInfo.ArenaType, (uint32)GroupInfo.ArenaType,
-                            GroupInfo.ArenaMatchmakerRating,
-                            QueuedA + QueuedH);
-                    }
-                    break;
-            }
-        }
-        else
-        {
-            if (!bg || !bracket)
-                return;
-
-            if (sWorld->getBoolConfig(CONFIG_BATTLEGROUND_IGNORE_FACTION))
-            {
-                //[%s (%u-%u)]: %u players joined, %u/%u in queue
-                text = Format(sObjectMgr->GetTrinityString(LANG_QUEUE_ANNOUNCE_BATTLEGROUND_N, locale),
-                    bg->GetName(locale),
-                    bracket->minLevel, bracket->maxLevel,
-                    GroupInfo.Players.size(),
-                    QueuedA + QueuedH, bg->GetMinPlayersPerTeam() * 2);
-            }
-            else
-            {
-                TrinityStrings textId;
-                switch (GroupInfo.Team)
-                {
-                    case ALLIANCE: textId = LANG_QUEUE_ANNOUNCE_BATTLEGROUND_A; break;
-                    case HORDE:    textId = LANG_QUEUE_ANNOUNCE_BATTLEGROUND_H; break;
-                }
-
-                //[%s (%u-%u)]: %u players joined, %u/%u %u/%u in queue
-                text = Format(sObjectMgr->GetTrinityString(textId, locale),
-                    bg->GetName(locale),
-                    bracket->minLevel, bracket->maxLevel,
-                    GroupInfo.Players.size(),
-                    QueuedH, bg->GetMinPlayersPerTeam(),
-                    QueuedA, bg->GetMinPlayersPerTeam());
-            }
-        }
-        WorldPacket* data = new WorldPacket();
-        ChatHandler::BuildChatPacket(*data, CHAT_MSG_SYSTEM, LANG_UNIVERSAL, 0, 0, text);
-        packets.push_back(data);
-    };
-    Trinity::LocalizedPacketListDo<decltype(builder)> sender { builder };
-    for (auto&& session : sWorld->GetAllSessions())
-    {
-        Player* player = session.second->GetPlayer();
-        projectMemberInfo* info = session.second->GetprojectMemberInfo();
-        if (!player || !info)
-            continue;
-
-        // Don't show to players in the wrong level range
-        if (bracket && (player->GetLevel() < bracket->minLevel || player->GetLevel() > bracket->maxLevel))
-            continue;
-
-        Show setting = info->GetSetting(isArena ? projectMemberInfo::Setting::QueueAnnounceArenaHorizon : projectMemberInfo::Setting::QueueAnnounceBattlegroundHorizon).As<Show>();
-
-        // Always show for the players that just queued
-        if (GroupInfo.Players.find(player->GetGUID()) != GroupInfo.Players.end())
-            setting = Show::Always;
-
-        switch (setting)
-        {
-            case Show::Never:
-                continue;
-            case Show::WhileInSameQueue:
-            {
-                BattlegroundQueueTypeId queue = BattlegroundMgr::BGQueueTypeId(GroupInfo.BgTypeId, GroupInfo.ArenaType);
-                if (!player->InBattlegroundQueueForBattlegroundQueueType(queue))
-                    continue;
-                //[[fallthrough]]
-            }
-            case Show::WhileQueued:
-                if (IsSolo)
-                {
-                    if (!player->InBattlegroundQueueForBattlegroundQueueType(BATTLEGROUND_QUEUE_SOLO))
-                        continue;
-                }
-                else if (isArena)
-                {
-                    if (!player->InBattlegroundQueueForBattlegroundQueueType(BATTLEGROUND_QUEUE_2v2) &&
-                        !player->InBattlegroundQueueForBattlegroundQueueType(BATTLEGROUND_QUEUE_3v3) &&
-                        !player->InBattlegroundQueueForBattlegroundQueueType(BATTLEGROUND_QUEUE_5v5))
-                        continue;
-                }
-                else
-                {
-                    if (!player->InBattlegroundQueue())
-                        continue;
-                }
-                //[[fallthrough]]
-            case Show::Always:
-                sender(player);
-
-                if (!session.second->queueAnnounceSent)
-                {
-                    session.second->queueAnnounceSent = true;
-                    ChatHandler(player).SendSysMessage(LANG_QUEUE_ANNOUNCE_INFO);
-                }
-                break;
-        }
-    }
-}
-
 // add group or player (grp == NULL) to bg queue with the given leader and bg specifications
 GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* grp, BattlegroundTypeId bgTypeId, PvPDifficultyEntry const*  bracketEntry, uint8 arenaType, bool isRated, bool isPremade, uint32 arenaRating, uint32 matchmakerRating)
 {
@@ -439,28 +299,7 @@ GroupQueueInfo* BattlegroundQueue::AddGroup(Player* leader, Group* grp, Battlegr
 
     //add GroupInfo to m_QueuedGroups
     {
-        //ACE_Guard<ACE_Recursive_Thread_Mutex> guard(m_Lock);
         m_QueuedGroups[bracketId][index].push_back(ginfo);
-
-        //announce personal
-        if (QueueAnnounceContext::IsEnabled(bgTypeId, isRated, m_isSolo))
-        {
-            auto& queueA = m_QueuedGroups[bracketId][isRated || isPremade ? BG_QUEUE_PREMADE_ALLIANCE : BG_QUEUE_NORMAL_ALLIANCE];
-            auto& queueH = m_QueuedGroups[bracketId][isRated || isPremade ? BG_QUEUE_PREMADE_HORDE    : BG_QUEUE_NORMAL_HORDE   ];
-            //ArenaTeam* team = sArenaTeamMgr->GetArenaTeamById(ginfo->ArenaTeamId);
-            QueueAnnounceContext
-            {
-                true,
-                *ginfo,
-                bracketId,
-                isPremade,
-                m_isSolo,
-                m_isSolo ? ginfo->Players.begin()->second->Role : SoloQueueRole::None,
-                m_isSolo ? m_damagersCount : BattlegroundMgr::IsArenaType(bgTypeId) ? uint32(queueA.size()) : std::accumulate(queueA.begin(), queueA.end(), 0u, [](uint32 a, GroupQueueInfo* b) { return a + (b->IsInvitedToBGInstanceGUID ? 0 : b->Players.size()); }),
-                m_isSolo ? m_healersCount  : BattlegroundMgr::IsArenaType(bgTypeId) ? uint32(queueH.size()) : std::accumulate(queueH.begin(), queueH.end(), 0u, [](uint32 a, GroupQueueInfo* b) { return a + (b->IsInvitedToBGInstanceGUID ? 0 : b->Players.size()); }),
-                "", //team ? team->GetName() : "",
-            }.Announce();
-        }
 
         //announce to world, this code needs mutex
         if (!isRated && !isPremade && sWorld->getBoolConfig(CONFIG_BATTLEGROUND_QUEUE_ANNOUNCER_ENABLE))
@@ -553,7 +392,7 @@ uint32 BattlegroundQueue::GetAverageQueueWaitTime(GroupQueueInfo* ginfo, Battleg
 }
 
 //remove player from queue and from group info, if group info is empty then remove it too
-void BattlegroundQueue::RemovePlayer(uint64 guid, bool decreaseInvitedCount, bool leave /*= false*/)
+void BattlegroundQueue::RemovePlayer(ObjectGuid guid, bool decreaseInvitedCount, bool leave /*= false*/)
 {
     int32 bracket_id = -1;                                     // signed for proper for-loop finish
     QueuedPlayersMap::iterator itr;
@@ -565,7 +404,7 @@ void BattlegroundQueue::RemovePlayer(uint64 guid, bool decreaseInvitedCount, boo
         std::string playerName = "Unknown";
         if (Player* player = ObjectAccessor::FindPlayer(guid))
             playerName = player->GetName();
-        TC_LOG_ERROR("bg.battleground", "BattlegroundQueue: couldn't find player %s (GUID: %u)", playerName.c_str(), GUID_LOPART(guid));
+        TC_LOG_ERROR("bg.battleground", "BattlegroundQueue: couldn't find player %s (%s)", playerName.c_str(), guid.ToString().c_str());
         return;
     }
 
@@ -584,7 +423,7 @@ void BattlegroundQueue::RemovePlayer(uint64 guid, bool decreaseInvitedCount, boo
 
     // https://us.battle.net/forums/en/wow/topic/13242714145
     if (leave && group->IsInvitedToBGInstanceGUID && (group->IsRated || group->IsRatedBG))
-        if (Player* player = sObjectAccessor->FindPlayerInOrOutOfWorld(guid))
+        if (Player* player = ObjectAccessor::FindPlayer(guid))
             player->ApplyDeserter();
 
     uint32 index = (group->Team == HORDE) ? BG_QUEUE_PREMADE_HORDE : BG_QUEUE_PREMADE_ALLIANCE;
@@ -613,10 +452,10 @@ void BattlegroundQueue::RemovePlayer(uint64 guid, bool decreaseInvitedCount, boo
     //player can't be in queue without group, but just in case
     if (bracket_id == -1)
     {
-        TC_LOG_ERROR("bg.battleground", "BattlegroundQueue: ERROR Cannot find groupinfo for player GUID: %u", GUID_LOPART(guid));
+        TC_LOG_ERROR("bg.battleground", "BattlegroundQueue: ERROR Cannot find groupinfo for %s", guid.ToString().c_str());
         return;
     }
-    TC_LOG_DEBUG("bg.battleground", "BattlegroundQueue: Removing player GUID %u, from bracket_id %u", GUID_LOPART(guid), (uint32)bracket_id);
+    TC_LOG_DEBUG("bg.battleground", "BattlegroundQueue: Removing player GUID %s, from bracket_id %u", guid.ToString().c_str(), (uint32)bracket_id);
 
     // ALL variables are correctly set
     // We can ignore leveling up in queue - it should not cause crash
@@ -624,7 +463,7 @@ void BattlegroundQueue::RemovePlayer(uint64 guid, bool decreaseInvitedCount, boo
     // if only one player there, remove group
 
     // remove player queue info from group queue info
-    std::map<uint64, PlayerQueueInfo*>::iterator pitr = group->Players.find(guid);
+    std::map<ObjectGuid, PlayerQueueInfo*>::iterator pitr = group->Players.find(guid);
     if (pitr != group->Players.end())
         group->Players.erase(pitr);
 
@@ -639,7 +478,7 @@ void BattlegroundQueue::RemovePlayer(uint64 guid, bool decreaseInvitedCount, boo
     // if player leaves queue and he is invited to rated arena match, then he have to lose
     if (group->IsInvitedToBGInstanceGUID && (group->IsRated || group->IsRatedBG) && decreaseInvitedCount)
     {
-        TC_LOG_DEBUG("bg.battleground", "UPDATING memberLost's personal arena rating for %u by opponents rating: %u", GUID_LOPART(guid), group->OpponentsTeamRating);
+        TC_LOG_DEBUG("bg.battleground", "UPDATING memberLost's personal arena rating for %s by opponents rating: %u", guid.ToString().c_str(), group->OpponentsTeamRating);
 
         if (Battleground* bg = sBattlegroundMgr->GetBattleground(group->IsInvitedToBGInstanceGUID, group->BgTypeId))
         {
@@ -734,7 +573,7 @@ bool BattlegroundQueue::InviteGroupToBG(GroupQueueInfo* ginfo, Battleground* bg,
         ginfo->RemoveInviteTime = getMSTime() + INVITE_ACCEPT_WAIT_TIME;
 
         // loop through the players
-        for (std::map<uint64, PlayerQueueInfo*>::iterator itr = ginfo->Players.begin(); itr != ginfo->Players.end(); ++itr)
+        for (std::map<ObjectGuid, PlayerQueueInfo*>::iterator itr = ginfo->Players.begin(); itr != ginfo->Players.end(); ++itr)
         {
             // get the player
             Player* player = ObjectAccessor::FindPlayer(itr->first);
@@ -768,7 +607,7 @@ bool BattlegroundQueue::InviteGroupToBG(GroupQueueInfo* ginfo, Battleground* bg,
             uint32 queueSlot = player->GetBattlegroundQueueIndex(bgQueueTypeId);
 
             TC_LOG_DEBUG("bg.battleground", "Battleground: invited player %s (%u) to BG instance %u queueindex %u bgtype %u",
-                 player->GetName().c_str(), player->GetGUIDLow(), bg->GetInstanceID(), queueSlot, bg->GetTypeID());
+                 player->GetName().c_str(), player->GetGUID().GetCounter(), bg->GetInstanceID(), queueSlot, bg->GetTypeID());
 
             // send status packet
             sBattlegroundMgr->BuildBattlegroundStatusPacket(&data, bg, player, queueSlot, STATUS_WAIT_JOIN, INVITE_ACCEPT_WAIT_TIME, player->GetBattlegroundQueueJoinTime(bgTypeId), ginfo->ArenaType);
@@ -1313,7 +1152,7 @@ bool SoloGroup::Create(GroupQueueInfo* ginfo)
 {
     for (auto&& it : ginfo->Players)
     {
-        Player* player = ObjectAccessor::FindPlayerInOrOutOfWorld(it.first);
+        Player* player = ObjectAccessor::FindPlayer(it.first);
         if (!player)
             return false;
 
@@ -1365,10 +1204,6 @@ void SoloGroup::AddPlayer(SoloPlayer const& p)
 SoloQueue::SoloQueue()
 {
     m_isSolo = true;
-    std::string str = sConfigMgr->GetStringDefault("LogsDir", "");
-    if (!str.empty())
-        str += '/';
-    m_log.Open(str + "solo_queue.log", "a");
 }
 
 bool SoloQueue::IsCompatible(SoloGroup const* lhs, SoloGroup const* rhs, bool strong)
@@ -1672,14 +1507,6 @@ void SoloQueue::DoMatchmaking(GroupQueueInfo* ginfo, uint32 extraDiff, bool stro
     });
 
     uint32 now = getMSTime();
-    m_log.Write("%u - %u rating", lower, upper);
-    for (auto&& it : m_selection)
-    {
-        auto& i = it->Current.front();
-        m_log.Write("%u (%s) - %u rating (%u in queue)", i.Target->GetGUIDLow(),
-            i.Role == SoloQueueRole::Healer ? "healer" : "damager", i.Info->ArenaMatchmakerRating, (now - i.Info->JoinTime) / IN_MILLISECONDS);
-    }
-    m_log.Write("Total queued: %u", uint32(m_selection.size()));
 
     if (m_selection.size() < sWorld->getIntConfig(CONFIG_SOLO_QUEUE_MIN_QUEUE_SIZE))
         return;
@@ -1739,29 +1566,29 @@ void SoloQueue::DoMatchmaking(GroupQueueInfo* ginfo, uint32 extraDiff, bool stro
     {
         if (!strong)
             return;
-        TaskMgr::Default()->ScheduleInvocation([=]
-        {
-            auto& a = m_QueuedGroups[bracketId][BG_QUEUE_PREMADE_ALLIANCE];
-            auto& h = m_QueuedGroups[bracketId][BG_QUEUE_PREMADE_HORDE];
-            auto it = std::find(a.begin(), a.end(), ginfo);
-            if (it == a.end())
-            {
-                it = std::find(h.begin(), h.end(), ginfo);
-                if (it == h.end())
-                    return;
-            }
-            DoMatchmaking(*it, extraDiff, false);
-        });
+        // TaskMgr::Default()->ScheduleInvocation([=]
+        // {
+        //     auto& a = m_QueuedGroups[bracketId][BG_QUEUE_PREMADE_ALLIANCE];
+        //     auto& h = m_QueuedGroups[bracketId][BG_QUEUE_PREMADE_HORDE];
+        //     auto it = std::find(a.begin(), a.end(), ginfo);
+        //     if (it == a.end())
+        //     {
+        //         it = std::find(h.begin(), h.end(), ginfo);
+        //         if (it == h.end())
+        //             return;
+        //     }
+        //     DoMatchmaking(*it, extraDiff, false);
+        // });
         return;
     }
 
     m_buff << "Groups are picked: ";
     for (auto&& it : aTeam->Current)
-        m_buff << it.Target->GetGUIDLow() << ' ';
+        m_buff << it.Target->GetGUID().GetCounter() << ' ';
     m_buff << "vs ";
     for (auto&& it : hTeam->Current)
-        m_buff << it.Target->GetGUIDLow() << ' ';
-    m_log.Write(m_buff.str().c_str());
+        m_buff << it.Target->GetGUID().GetCounter() << ' ';
+
     m_buff.str(std::string());
 
     // Invite to arena
@@ -1869,7 +1696,7 @@ void SoloQueue::DynamicUpdate()
                 bool heal = false;
                 for (auto&& it2 : (*it)->Players)
                 {
-                    if (Player* player = ObjectAccessor::FindPlayerInOrOutOfWorld(it2.first))
+                    if (Player* player = ObjectAccessor::FindPlayer(it2.first))
                     {
                         if (GetRole(player->GetSpecialization()) == SoloQueueRole::Healer)
                         {
@@ -1890,22 +1717,22 @@ void SoloQueue::DynamicUpdate()
                 }
 
                 ++i;
-                TaskMgr::Default()->ScheduleInvocation([=]
-                {
-                    if (team->size() <= i)
-                        return;
+                // TaskMgr::Default()->ScheduleInvocation([=]
+                // {
+                //     if (team->size() <= i)
+                //         return;
 
-                    auto itr = team->begin();
-                    std::advance(itr, i);
+                //     auto itr = team->begin();
+                //     std::advance(itr, i);
 
-                    if ((*itr)->IsInvitedToBGInstanceGUID)
-                        return;
+                //     if ((*itr)->IsInvitedToBGInstanceGUID)
+                //         return;
 
-                    uint32 extradiff = (timeinq / sWorld->getIntConfig(CONFIG_ARENA_PROGRESSIVE_MMR_TIMER)) * sWorld->getIntConfig(CONFIG_ARENA_PROGRESSIVE_MMR_STEPSIZE);
-                    if (!heal)
-                        extradiff /= 2;
-                    DoMatchmaking(*itr, extradiff, false);
-                });
+                //     uint32 extradiff = (timeinq / sWorld->getIntConfig(CONFIG_ARENA_PROGRESSIVE_MMR_TIMER)) * sWorld->getIntConfig(CONFIG_ARENA_PROGRESSIVE_MMR_STEPSIZE);
+                //     if (!heal)
+                //         extradiff /= 2;
+                //     DoMatchmaking(*itr, extradiff, false);
+                // });
             }
         }
     }
@@ -2063,7 +1890,7 @@ bool BGQueueRemoveEvent::Execute(uint64 /*e_time*/, uint32 /*p_time*/)
         BattlegroundQueue &bgQueue = sBattlegroundMgr->GetBattlegroundQueue(m_BgQueueTypeId);
         if (bgQueue.IsPlayerInvited(m_PlayerGuid, m_BgInstanceGUID, m_RemoveTime))
         {
-            TC_LOG_DEBUG("bg.battleground", "Battleground: removing player %u from bg queue for instance %u because of not pressing enter battle in time.", player->GetGUIDLow(), m_BgInstanceGUID);
+            TC_LOG_DEBUG("bg.battleground", "Battleground: removing player %u from bg queue for instance %u because of not pressing enter battle in time.", player->GetGUID().GetCounter(), m_BgInstanceGUID);
 
             player->RemoveBattlegroundQueueId(m_BgQueueTypeId);
             bgQueue.RemovePlayer(m_PlayerGuid, true);

@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -235,7 +235,7 @@ class npc_faction_champion_toc5 : public CreatureScript
                     _events.RescheduleEvent(EVENT_CHARGE, 1);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 _events.ScheduleEvent(EVENT_THRUST, urand(5000, 10000));
                 _events.ScheduleEvent(EVENT_CHARGE, urand(5000, 15000));
@@ -388,7 +388,7 @@ class boss_grand_champion_toc5 : public CreatureScript
                         _phase = 1;
                         me->SetReactState(REACT_AGGRESSIVE);
                         me->SetWalk(false);
-                        if (Creature* announcer = ObjectAccessor::GetCreature(*me, _instance ? _instance->GetData64(DATA_ANNOUNCER) : 0))
+                        if (Creature* announcer = ObjectAccessor::GetCreature(*me, _instance ? _instance->GetGuidData(DATA_ANNOUNCER) : ObjectGuid::Empty))
                             announcer->AI()->SetData(DATA_GRAND_CHAMPIONS_DEFEATED, announcer->AI()->GetData(DATA_GRAND_CHAMPIONS_DEFEATED) - 1);
                         CreatureAddon const* cainfo = me->GetCreatureAddon();
                         if (cainfo && cainfo->mount != 0)
@@ -465,7 +465,7 @@ class boss_grand_champion_toc5 : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat(me, 150.0f);
                 me->CallForHelp(20.0f);
@@ -521,12 +521,12 @@ class boss_grand_champion_toc5 : public CreatureScript
                             me->SetReactState(REACT_PASSIVE);
                             me->SetWalk(true);
                             SearchMount();
-                            if (Creature* announcer = ObjectAccessor::GetCreature(*me, _instance ? _instance->GetData64(DATA_ANNOUNCER) : 0))
+                            if (Creature* announcer = ObjectAccessor::GetCreature(*me, _instance ? _instance->GetGuidData(DATA_ANNOUNCER) : ObjectGuid::Empty))
                                 announcer->AI()->SetData(DATA_GRAND_CHAMPIONS_DEFEATED, announcer->AI()->GetData(DATA_GRAND_CHAMPIONS_DEFEATED) + 1);
                             break;
                         case 3:
                             _phase = 4;
-                            me->MonsterYell("Excellent work!", LANG_UNIVERSAL, 0); // SAY_START_1
+                            me->Yell("Excellent work!", LANG_UNIVERSAL); // SAY_START_1
                             me->InterruptNonMeleeSpells(true);
                             me->RemoveAurasDueToSpell(SPELL_BLADESTORM);
                             DoCast(me, SPELL_KNEEL, true);

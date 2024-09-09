@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -166,7 +166,7 @@ public:
             }
         }
 
-        void EnterCombat(Unit* who) override
+        void JustEngagedWith(Unit* who) override
         {
             //not always use
             if (rand()%4)
@@ -248,7 +248,7 @@ public:
             }
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void UpdateAI(uint32 diff) override
         {
@@ -331,9 +331,9 @@ public:
         uint8 Wave;
         uint32 WaveTimer;
         uint32 ChallengerChecker;
-        uint64 PlayerGUID;
-        uint64 AffrayChallenger[6];
-        uint64 BigWill;
+        ObjectGuid PlayerGUID;
+        ObjectGuid AffrayChallenger[6];
+        ObjectGuid BigWill;
 
         void Reset() override
         {
@@ -343,17 +343,17 @@ public:
             WaveTimer = 600000;
             ChallengerChecker = 0;
             Wave = 0;
-            PlayerGUID = 0;
+            PlayerGUID = ObjectGuid::Empty;
 
             for (uint8 i = 0; i < 6; ++i)
             {
-                AffrayChallenger[i] = 0;
+                AffrayChallenger[i] = ObjectGuid::Empty;
                 ChallengerDown[i] = false;
             }
-            BigWill = 0;
+            BigWill = ObjectGuid::Empty;
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void MoveInLineOfSight(Unit* who) override
 
@@ -543,7 +543,7 @@ public:
         {
             if (!HasEscortState(STATE_ESCORT_ESCORTING))
             {
-                if (me->getStandState() == UNIT_STAND_STATE_DEAD)
+                if (me->GetStandState() == UNIT_STAND_STATE_DEAD)
                      me->SetStandState(UNIT_STAND_STATE_STAND);
 
                 IsPostEvent = false;
@@ -702,7 +702,7 @@ class npc_razormane_pillager : public CreatureScript
         {
             npc_razormane_pillagerAI(Creature* creature) : ScriptedAI(creature) { }
 
-            uint64 summonerGUID;
+            ObjectGuid summonerGUID;
 
             void IsSummonedBy(Unit* summoner) override
             {
@@ -825,17 +825,17 @@ struct npc_barrent_wounded_defender : public CreatureAI
     npc_barrent_wounded_defender(Creature* creature) : CreatureAI(creature) { }
 
     TaskScheduler scheduler;
-    uint64 questReceiverGUID;
+    ObjectGuid questReceiverGUID;
     bool hasCredit;
 
     void Reset() override
     {
         hasCredit = false;
-        questReceiverGUID = 0;
+        questReceiverGUID = ObjectGuid::Empty;
         me->SetStandState(UNIT_STAND_STATE_SLEEP);
     }
 
-    void SetGUID(uint64 guid, int32 /*type*/) override
+    void SetGUID(ObjectGuid guid, int32 /*type*/) override
     {
         questReceiverGUID = guid;
     }
@@ -860,8 +860,7 @@ struct npc_barrent_wounded_defender : public CreatureAI
                 .Schedule(Seconds(4), [this](TaskContext context)
             {
                 // Move away!
-                Position pos;
-                me->GetNearPosition(pos, 15.0f, frand(0.0f, 2 * M_PI));
+                Position pos = me->GetNearPosition(15.0f, frand(0.0f, 2 * M_PI));
                 me->GetMotionMaster()->MovePoint(0, pos);
                 me->DespawnOrUnsummon(me->GetSplineDuration());
             });

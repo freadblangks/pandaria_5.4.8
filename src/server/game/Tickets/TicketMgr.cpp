@@ -41,6 +41,12 @@ TicketMgr::~TicketMgr()
         delete itr->second;
 }
 
+TicketMgr* TicketMgr::instance()
+{
+    static TicketMgr instance;
+    return &instance;
+}
+
 void TicketMgr::Initialize()
 {
     SetFeedBackSystemStatus(sWorld->getBoolConfig(CONFIG_TICKETS_FEEDBACK_SYSTEM_ENABLED));
@@ -135,7 +141,7 @@ void TicketMgr::AddTicket(GmTicket* ticket)
     if (!ticket->IsClosed())
         ++_openGmTicketCount;
 
-    SQLTransaction trans = SQLTransaction(NULL);
+    CharacterDatabaseTransaction trans = CharacterDatabaseTransaction(nullptr);
     ticket->SaveToDB(trans);
 }
 
@@ -145,7 +151,7 @@ void TicketMgr::AddTicket(BugTicket* ticket)
     if (!ticket->IsClosed())
         ++_openBugTicketCount;
 
-    SQLTransaction trans = SQLTransaction(NULL);
+    CharacterDatabaseTransaction trans = CharacterDatabaseTransaction(nullptr);
     ticket->SaveToDB(trans);
 }
 
@@ -197,11 +203,11 @@ template<> void TicketMgr::RemoveTicket<BugTicket>(uint32 ticketId)
     }
 }
 
-template<> void TicketMgr::CloseTicket<GmTicket>(uint32 ticketId, int64 closedBy)
+template<> void TicketMgr::CloseTicket<GmTicket>(uint32 ticketId, ObjectGuid closedBy)
 {
     if (GmTicket* ticket = GetTicket<GmTicket>(ticketId))
     {
-        SQLTransaction trans = SQLTransaction(NULL);
+        CharacterDatabaseTransaction trans = CharacterDatabaseTransaction(nullptr);
         ticket->SetClosedBy(closedBy);
         if (closedBy)
             --_openGmTicketCount;
@@ -210,11 +216,11 @@ template<> void TicketMgr::CloseTicket<GmTicket>(uint32 ticketId, int64 closedBy
     }
 }
 
-template<> void TicketMgr::CloseTicket<BugTicket>(uint32 ticketId, int64 closedBy)
+template<> void TicketMgr::CloseTicket<BugTicket>(uint32 ticketId, ObjectGuid closedBy)
 {
     if (BugTicket* ticket = GetTicket<BugTicket>(ticketId))
     {
-        SQLTransaction trans = SQLTransaction(NULL);
+        CharacterDatabaseTransaction trans = CharacterDatabaseTransaction(nullptr);
         ticket->SetClosedBy(closedBy);
         if (closedBy)
             --_openBugTicketCount;
@@ -232,7 +238,7 @@ template<> void TicketMgr::ResetTickets<GmTicket>()
 
     _lastGmTicketId = 0;
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_ALL_GM_TICKETS);
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_ALL_GM_TICKETS);
     CharacterDatabase.Execute(stmt);
 }
 
@@ -245,7 +251,7 @@ template<> void TicketMgr::ResetTickets<BugTicket>()
 
     _lastBugId = 0;
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_ALL_GM_BUGS);
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_ALL_GM_BUGS);
     CharacterDatabase.Execute(stmt);
 }
 
@@ -358,7 +364,7 @@ void TicketMgr::SendGmResponsee(WorldSession* session, GmTicket* ticket) const
     }
 }
 
-void TicketMgr::SendGmTicketUpdate(Opcodes opcode, GMTicketResponse response, Player* player) const
+void TicketMgr::SendGmTicketUpdate(OpcodeServer opcode, GMTicketResponse response, Player* player) const
 {
     if (player && player->IsInWorld())
     {

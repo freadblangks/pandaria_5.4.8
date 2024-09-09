@@ -769,7 +769,7 @@ public:
             return false;
 
         pPrisoner->DisappearAndDie();
-        player->KilledMonsterCredit(NPC_EBON_BLADE_PRISONER_HUMAN, 0);
+        player->KilledMonsterCredit(NPC_EBON_BLADE_PRISONER_HUMAN, ObjectGuid::Empty);
         switch (pPrisoner->GetEntry())
         {
             case NPC_EBON_BLADE_PRISONER_HUMAN:
@@ -883,9 +883,9 @@ class go_soulwell : public GameObjectScript
             /// _and_ CMSG_GAMEOBJECT_REPORT_USE, this GossipHello hook is called
             /// twice. The script's handling is fine as it won't remove two charges
             /// on the well. We have to find how to segregate REPORT_USE and USE.
-            bool GossipHello(Player* player) override
+            bool OnGossipHello(Player* player) override
             {
-                Unit* owner = go->GetOwner();
+                Unit* owner = me->GetOwner();
                 if (!owner || owner->GetTypeId() != TYPEID_PLAYER || !player->IsInSameRaidWith(owner->ToPlayer()))
                     return true;
                 return false;
@@ -942,9 +942,17 @@ public:
         if (qInfo)
         {
             /// @todo prisoner should help player for a short period of time
-            player->KilledMonsterCredit(qInfo->GetQuestObjectiveXIndex(0)->ObjectId);
-            pPrisoner->DisappearAndDie();
+            for (const auto& objective : qInfo->Objectives)
+            {
+                if (objective.StorageIndex == 0)
+                {
+                    player->KilledMonsterCredit(objective.ObjectID);
+                    pPrisoner->DisappearAndDie();
+                    break;
+                }
+            }
         }
+
         return true;
     }
 };
@@ -974,7 +982,7 @@ public:
             if (pTadpole)
             {
                 pTadpole->DisappearAndDie();
-                player->KilledMonsterCredit(NPC_WINTERFIN_TADPOLE, 0);
+                player->KilledMonsterCredit(NPC_WINTERFIN_TADPOLE, ObjectGuid::Empty);
                 //FIX: Summon minion tadpole
             }
         }
@@ -1131,7 +1139,7 @@ class go_gjalerbron_cage : public GameObjectScript
             {
                 if (Creature* prisoner = go->FindNearestCreature(NPC_GJALERBRON_PRISONER, 5.0f))
                 {
-                    player->KilledMonsterCredit(NPC_GJALERBRON_PRISONER, 0);
+                    player->KilledMonsterCredit(NPC_GJALERBRON_PRISONER, ObjectGuid::Empty);
 
                     prisoner->AI()->Talk(SAY_FREE);
                     prisoner->DespawnOrUnsummon(6000);

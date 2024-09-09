@@ -75,7 +75,7 @@ bool Bag::Create(uint32 guidlow, uint32 itemid, Player const* owner)
     if (!itemProto || itemProto->ContainerSlots > MAX_BAG_SIZE)
         return false;
 
-    Object::_Create(guidlow, 0, HIGHGUID_CONTAINER);
+    Object::_Create(guidlow, 0, HighGuid::Container);
 
     SetEntry(itemid);
     SetObjectScale(1.0f);
@@ -94,18 +94,18 @@ bool Bag::Create(uint32 guidlow, uint32 itemid, Player const* owner)
     for (uint8 i = 0; i < MAX_BAG_SIZE; ++i)
     {
         SetUInt64Value(CONTAINER_FIELD_SLOTS + (i*2), 0);
-        m_bagslot[i] = NULL;
+        m_bagslot[i] = nullptr;
     }
 
     return true;
 }
 
-void Bag::SaveToDB(SQLTransaction& trans)
+void Bag::SaveToDB(CharacterDatabaseTransaction trans)
 {
     Item::SaveToDB(trans);
 }
 
-bool Bag::LoadFromDB(uint32 guid, uint64 ownerGuid, Field* fields, uint32 entry, Player* owner)
+bool Bag::LoadFromDB(uint32 guid, ObjectGuid ownerGuid, Field* fields, uint32 entry, Player* owner)
 {
     if (!Item::LoadFromDB(guid, ownerGuid, fields, entry, owner))
         return false;
@@ -117,13 +117,13 @@ bool Bag::LoadFromDB(uint32 guid, uint64 ownerGuid, Field* fields, uint32 entry,
     {
         SetUInt64Value(CONTAINER_FIELD_SLOTS + (i*2), 0);
         delete m_bagslot[i];
-        m_bagslot[i] = NULL;
+        m_bagslot[i] = nullptr;
     }
 
     return true;
 }
 
-void Bag::DeleteFromDB(SQLTransaction& trans)
+void Bag::DeleteFromDB(CharacterDatabaseTransaction trans)
 {
     for (uint8 i = 0; i < MAX_BAG_SIZE; ++i)
         if (m_bagslot[i])
@@ -147,9 +147,9 @@ void Bag::RemoveItem(uint8 slot, bool /*update*/)
     ASSERT(slot < MAX_BAG_SIZE);
 
     if (m_bagslot[slot])
-        m_bagslot[slot]->SetContainer(NULL);
+        m_bagslot[slot]->SetContainer(nullptr);
 
-    m_bagslot[slot] = NULL;
+    m_bagslot[slot] = nullptr;
     SetUInt64Value(CONTAINER_FIELD_SLOTS + (slot * 2), 0);
 }
 
@@ -239,5 +239,5 @@ Item* Bag::GetItemByPos(uint8 slot) const
     if (slot < GetBagSize())
         return m_bagslot[slot];
 
-    return NULL;
+    return nullptr;
 }

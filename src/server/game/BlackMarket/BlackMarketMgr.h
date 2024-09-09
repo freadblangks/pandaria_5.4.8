@@ -18,8 +18,6 @@
 #ifndef BLACK_MARKET_H
 #define BLACK_MARKET_H
 
-#include <ace/Singleton.h>
-
 #include "Common.h"
 #include "DatabaseEnv.h"
 #include "DBCStructure.h"
@@ -84,8 +82,8 @@ public:
     void SetEndTime(uint32 endTime) { _endTime = endTime; }
     uint32 GetEndTime() { return _endTime; }
 
-    void SetCurrentBidder(uint32 currentBidder) { _currentBidder = currentBidder; }
-    uint32 GetCurrentBidder() const { return _currentBidder; }
+    void SetCurrentBidder(ObjectGuid::LowType currentBidder) { _currentBidder = currentBidder; }
+    ObjectGuid::LowType GetCurrentBidder() const { return _currentBidder; }
 
     void SetCurrentBid(uint64 currentBid) { _currentBid = currentBid; }
     uint64 GetCurrentBid() const { return _currentBid; }
@@ -98,9 +96,9 @@ public:
 
     BlackMarketAuctionTemplate* GetTemplate() const;
 
-    void DeleteFromDB(SQLTransaction& trans);
-    void SaveToDB(SQLTransaction& trans);
-    void UpdateToDB(SQLTransaction& trans);
+    void DeleteFromDB(CharacterDatabaseTransaction trans);
+    void SaveToDB(CharacterDatabaseTransaction trans);
+    void UpdateToDB(CharacterDatabaseTransaction trans);
 
     uint32 TimeLeft();
 
@@ -108,7 +106,7 @@ public:
     bool IsExpired() { return GetEndTime() < time(NULL); }
 
     std::string BuildAuctionMailSubject(BMMailAuctionAnswers response);
-    std::string BuildAuctionMailBody(uint32 lowGuid);
+    std::string BuildAuctionMailBody(ObjectGuid::LowType lowGuid);
 
 private:
     uint32 _auctionId;
@@ -128,13 +126,13 @@ typedef std::map<uint32, BlackMarketAuction*> BMAuctionStore;
 
 class BlackMarketMgr
 {
-    friend class ACE_Singleton<BlackMarketMgr, ACE_Null_Mutex>;
 
 private:
     BlackMarketMgr();
     ~BlackMarketMgr();
 
 public:
+    static BlackMarketMgr* instance();
     void Update();
     time_t GetLastUpdate() const { return _lastUpdate; }
 
@@ -146,13 +144,13 @@ public:
 
     uint32 GetFreeAuctionId();
 
-    void CreateAuctions(uint32 number, SQLTransaction& trans);
+    void CreateAuctions(uint32 number, CharacterDatabaseTransaction trans);
     void UpdateAuction(BlackMarketAuction* auction, uint64 newPrice, uint64 requiredIncrement, Player* newBidder);
 
     void BuildBlackMarketRequestItemsResult(WorldPacket& data, uint32 guidLow);
 
-    void SendAuctionWon(BlackMarketAuction* auction, SQLTransaction& trans);
-    void SendAuctionOutbidded(BlackMarketAuction* auction, Player* newBidder, SQLTransaction& trans);
+    void SendAuctionWon(BlackMarketAuction* auction, CharacterDatabaseTransaction trans);
+    void SendAuctionOutbidded(BlackMarketAuction* auction, Player* newBidder, CharacterDatabaseTransaction trans);
 
     bool isBlackMarketOpen() { return sWorld->getBoolConfig(CONFIG_BLACK_MARKET_OPEN); }
 
@@ -162,6 +160,6 @@ private:
     time_t _lastUpdate = time_t(0);
 };
 
-#define sBlackMarketMgr ACE_Singleton<BlackMarketMgr, ACE_Null_Mutex>::instance()
+#define sBlackMarketMgr BlackMarketMgr::instance()
 
 #endif

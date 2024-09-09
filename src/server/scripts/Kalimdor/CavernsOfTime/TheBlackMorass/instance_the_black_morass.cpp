@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -88,12 +88,12 @@ public:
         uint8  mRiftWaveCount;
         uint8  mRiftWaveId;
 
-        uint64 _medivhGUID;
+        ObjectGuid _medivhGUID;
         uint8  _currentRiftId;
 
         void Initialize() override
         {
-            _medivhGUID         = 0;
+            _medivhGUID = ObjectGuid::Empty;
             Clear();
         }
 
@@ -251,12 +251,12 @@ public:
             return 0;
         }
 
-        uint64 GetData64(uint32 data) const override
+        ObjectGuid GetGuidData(uint32 data) const override
         {
             if (data == DATA_MEDIVH)
                 return _medivhGUID;
 
-            return 0;
+            return ObjectGuid::Empty;
         }
 
         Creature* SummonedPortalBoss(Creature* me)
@@ -268,8 +268,7 @@ public:
 
             TC_LOG_DEBUG("scripts", "Instance The Black Morass: Summoning rift boss entry %u.", entry);
 
-            Position pos;
-            me->GetFirstCollisionPosition(pos, 10.0f, (float)rand_norm() * M_PI * 2);
+            Position pos = me->GetFirstCollisionPosition(10.0f, (float)rand_norm() * M_PI * 2);
 
             if (Creature* summon = me->SummonCreature(entry, pos, TEMPSUMMON_TIMED_OR_DEAD_DESPAWN, 600000))
                 return summon;

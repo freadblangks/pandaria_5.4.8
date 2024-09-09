@@ -360,7 +360,7 @@ private:
         typedef std::array<Profession, 2> Professions;
 
     public:
-        Member(uint32 guildId, uint64 guid, uint8 rankId):
+        Member(uint32 guildId, ObjectGuid guid, uint8 rankId):
             m_guildId(guildId),
             m_guid(guid),
             m_rankId(rankId),
@@ -385,11 +385,11 @@ private:
         void ResetFlags() { m_flags = GUILDMEMBER_STATUS_NONE; }
 
         bool LoadFromDB(Field* fields);
-        void SaveToDB(SQLTransaction& trans) const;
-        void SaveProfessionsToDB(SQLTransaction trans = nullptr);
-        void SaveAchievementsToDB(SQLTransaction trans = nullptr);
+        void SaveToDB(CharacterDatabaseTransaction trans) const;
+        void SaveProfessionsToDB(CharacterDatabaseTransaction trans = nullptr);
+        void SaveAchievementsToDB(CharacterDatabaseTransaction trans = nullptr);
 
-        uint64 GetGUID() const { return m_guid; }
+        ObjectGuid GetGUID() const { return m_guid; }
         std::string const& GetName() const { return m_name; }
         uint32 GetAccountId() const { return m_accountId; }
         uint8 GetRankId() const { return m_rankId; }
@@ -419,9 +419,9 @@ private:
 
         inline void UpdateLogoutTime() { m_logoutTime = ::time(NULL); }
         inline bool IsRank(uint8 rankId) const { return m_rankId == rankId; }
-        inline bool IsSamePlayer(uint64 guid) const { return m_guid == guid; }
+        inline bool IsSamePlayer(ObjectGuid guid) const { return m_guid == guid; }
 
-        void UpdateBankWithdrawValue(SQLTransaction& trans, uint8 tabId, uint32 amount);
+        void UpdateBankWithdrawValue(CharacterDatabaseTransaction trans, uint8 tabId, uint32 amount);
         int32 GetBankWithdrawValue(uint8 tabId) const;
         void ResetValues(bool weekly = false);
 
@@ -439,9 +439,9 @@ private:
         void SetReputation(int32 val);
 
     private:
-        uint32 m_guildId;
+        ObjectGuid::LowType m_guildId;
         // Fields from characters table
-        uint64 m_guid;
+        ObjectGuid m_guid;
         std::string m_name;
         uint32 m_zoneId = 0;
         uint8 m_level = 0;
@@ -476,7 +476,7 @@ private:
         uint32 GetGUID() const { return m_guid; }
         uint64 GetTimestamp() const { return m_timestamp; }
 
-        virtual void SaveToDB(SQLTransaction& trans) const = 0;
+        virtual void SaveToDB(CharacterDatabaseTransaction trans) const = 0;
         virtual void WritePacket(WorldPacket& data, ByteBuffer& content) const = 0;
 
     protected:
@@ -497,7 +497,7 @@ private:
 
         ~EventLogEntry() { }
 
-        void SaveToDB(SQLTransaction& trans) const;
+        void SaveToDB(CharacterDatabaseTransaction trans) const;
         void WritePacket(WorldPacket& data, ByteBuffer& content) const;
 
     private:
@@ -532,13 +532,13 @@ private:
 
         ~BankEventLogEntry() { }
 
-        void SaveToDB(SQLTransaction& trans) const;
+        void SaveToDB(CharacterDatabaseTransaction trans) const;
         void WritePacket(WorldPacket& data, ByteBuffer& content) const;
 
     private:
         GuildBankEventLogTypes m_eventType;
         uint8  m_bankTabId;
-        uint32 m_playerGuid;
+        ObjectGuid::LowType m_playerGuid;
         uint64 m_itemOrMoney;
         uint16 m_itemStackCount;
         uint8  m_destTabId;
@@ -548,16 +548,16 @@ private:
     class NewsLogEntry : public LogEntry
     {
     public:
-        NewsLogEntry(uint32 guildId, uint32 guid, GuildNews type, uint32 playerGuid, uint32 flags, uint32 value) :
+        NewsLogEntry(uint32 guildId, uint32 guid, GuildNews type, ObjectGuid playerGuid, uint32 flags, uint32 value) :
             LogEntry(guildId, guid), m_type(type), m_playerGuid(playerGuid), m_flags(flags), m_value(value) { }
 
-        NewsLogEntry(uint32 guildId, uint32 guid, time_t timestamp, GuildNews type, uint32 playerGuid, uint32 flags, uint32 value) :
+        NewsLogEntry(uint32 guildId, uint32 guid, time_t timestamp, GuildNews type, ObjectGuid playerGuid, uint32 flags, uint32 value) :
             LogEntry(guildId, guid, timestamp), m_type(type), m_playerGuid(playerGuid), m_flags(flags), m_value(value) { }
 
         ~NewsLogEntry() { }
 
         GuildNews GetType() const { return m_type; }
-        uint64 GetPlayerGuid() const { return m_playerGuid ? MAKE_NEW_GUID(m_playerGuid, 0, HIGHGUID_PLAYER) : 0; }
+        ObjectGuid GetPlayerGuid() const { return m_playerGuid; }
         uint32 GetValue() const { return m_value; }
         uint32 GetFlags() const { return m_flags; }
         void SetSticky(bool sticky)
@@ -568,12 +568,12 @@ private:
                m_flags &= ~1;
         }
 
-        void SaveToDB(SQLTransaction& trans) const;
+        void SaveToDB(CharacterDatabaseTransaction trans) const;
         void WritePacket(WorldPacket& data, ByteBuffer& content) const;
 
     private:
         GuildNews m_type;
-        uint32 m_playerGuid;
+        ObjectGuid m_playerGuid;
         uint32 m_flags;
         uint32 m_value;
     };
@@ -593,7 +593,7 @@ private:
         // Adds event from DB to collection
         void LoadEvent(LogEntry* entry);
         // Adds new event to collection and saves it to DB
-        void AddEvent(SQLTransaction& trans, LogEntry* entry);
+        void AddEvent(CharacterDatabaseTransaction trans, LogEntry* entry);
         // Writes information about all events to packet
         void WritePacket(WorldPacket& data) const;
         uint32 GetNextGUID();
@@ -615,7 +615,7 @@ private:
             m_guildId(guildId), m_rankId(rankId), m_name(name), m_rights(rights), m_bankMoneyPerDay(money) { }
 
         void LoadFromDB(Field* fields);
-        void SaveToDB(SQLTransaction& trans, size_t index) const;
+        void SaveToDB(CharacterDatabaseTransaction trans, size_t index) const;
 
         uint8 GetId() const { return m_rankId; }
 
@@ -640,7 +640,7 @@ private:
         }
 
         void SetBankTabSlotsAndRights(GuildBankRightsAndSlots rightsAndSlots, bool saveToDB);
-        void CreateMissingTabsIfNeeded(uint8 ranks, SQLTransaction& trans, bool logOnCreate = false);
+        void CreateMissingTabsIfNeeded(uint8 ranks, CharacterDatabaseTransaction trans, bool logOnCreate = false);
 
     private:
         uint32 m_guildId;
@@ -661,7 +661,7 @@ private:
 
         void LoadFromDB(Field* fields);
         bool LoadItemFromDB(Field* fields);
-        void Delete(SQLTransaction& trans, bool removeItemsFromDB = false);
+        void Delete(CharacterDatabaseTransaction trans, bool removeItemsFromDB = false);
 
         void WriteInfoPacket(WorldPacket& data) const
         {
@@ -678,7 +678,7 @@ private:
         std::string const& GetText() const { return m_text; }
 
         inline Item* GetItem(uint8 slotId) const { return slotId < GUILD_BANK_MAX_SLOTS ?  m_items[slotId] : NULL; }
-        bool SetItem(SQLTransaction& trans, uint8 slotId, Item* item);
+        bool SetItem(CharacterDatabaseTransaction trans, uint8 slotId, Item* item);
 
     private:
         uint32 m_guildId;
@@ -712,11 +712,11 @@ private:
         // Clones stored item
         bool CloneItem(uint32 count);
         // Remove item from container (if splited update items fields)
-        virtual void RemoveItem(SQLTransaction& trans, MoveItemData* pOther, uint32 splitedAmount = 0) = 0;
+        virtual void RemoveItem(CharacterDatabaseTransaction trans, MoveItemData* pOther, uint32 splitedAmount = 0) = 0;
         // Saves item to container
-        virtual Item* StoreItem(SQLTransaction& trans, Item* pItem) = 0;
+        virtual Item* StoreItem(CharacterDatabaseTransaction trans, Item* pItem) = 0;
         // Log bank event
-        virtual void LogBankEvent(SQLTransaction& trans, MoveItemData* pFrom, uint32 count) const = 0;
+        virtual void LogBankEvent(CharacterDatabaseTransaction trans, MoveItemData* pFrom, uint32 count) const = 0;
         // Log GM action
         virtual void LogAction(MoveItemData* pFrom, bool split) const;
         // Copy slots id from position vector
@@ -746,9 +746,9 @@ private:
 
         bool IsBank() const { return false; }
         bool InitItem();
-        void RemoveItem(SQLTransaction& trans, MoveItemData* pOther, uint32 splitedAmount = 0);
-        Item* StoreItem(SQLTransaction& trans, Item* pItem);
-        void LogBankEvent(SQLTransaction& trans, MoveItemData* pFrom, uint32 count) const;
+        void RemoveItem(CharacterDatabaseTransaction trans, MoveItemData* pOther, uint32 splitedAmount = 0);
+        Item* StoreItem(CharacterDatabaseTransaction trans, Item* pItem);
+        void LogBankEvent(CharacterDatabaseTransaction trans, MoveItemData* pFrom, uint32 count) const;
         void LogAction(MoveItemData* pFrom, bool split) const;
 
     protected:
@@ -765,16 +765,16 @@ private:
         bool InitItem();
         bool HasStoreRights(MoveItemData* pOther) const;
         bool HasWithdrawRights(MoveItemData* pOther) const;
-        void RemoveItem(SQLTransaction& trans, MoveItemData* pOther, uint32 splitedAmount);
-        Item* StoreItem(SQLTransaction& trans, Item* pItem);
-        void LogBankEvent(SQLTransaction& trans, MoveItemData* pFrom, uint32 count) const;
+        void RemoveItem(CharacterDatabaseTransaction trans, MoveItemData* pOther, uint32 splitedAmount);
+        Item* StoreItem(CharacterDatabaseTransaction trans, Item* pItem);
+        void LogBankEvent(CharacterDatabaseTransaction trans, MoveItemData* pFrom, uint32 count) const;
         void LogAction(MoveItemData* pFrom, bool split) const;
 
     protected:
         InventoryResult CanStore(Item* pItem, bool swap);
 
     private:
-        Item* _StoreItem(SQLTransaction& trans, BankTab* pTab, Item* pItem, ItemPosCount& pos, bool clone) const;
+        Item* _StoreItem(CharacterDatabaseTransaction trans, BankTab* pTab, Item* pItem, ItemPosCount& pos, bool clone) const;
         bool _ReserveSpace(uint8 slotId, Item* pItem, Item* pItemDest, uint32& count);
         void CanStoreItemInTab(Item* pItem, uint8 skipSlotId, bool merge, uint32& count);
     };
@@ -796,9 +796,9 @@ public:
     void SaveToDB();
 
     // Getters
-    uint32 GetId() const { return m_id; }
-    uint64 GetGUID() const { return MAKE_NEW_GUID(m_id, 0, HIGHGUID_GUILD); }
-    uint64 GetLeaderGUID() const { return m_leaderGuid; }
+    ObjectGuid::LowType GetId() const { return m_id; }
+    ObjectGuid GetGUID() const { return ObjectGuid(HighGuid::Guild, m_id); }
+    ObjectGuid GetLeaderGUID() const { return m_leaderGuid; }
     std::string const& GetName() const { return m_name; }
     std::string const& GetMOTD() const { return m_motd; }
     std::string const& GetInfo() const { return m_info; }
@@ -814,15 +814,15 @@ public:
     void HandleSetEmblem(WorldSession* session, const EmblemInfo& emblemInfo);
     void HandleSetNewGuildMaster(WorldSession* session, std::string const& name, bool isDethrone = false);
     void HandleSetBankTabInfo(WorldSession* session, uint8 tabId, std::string const& name, std::string const& icon);
-    void HandleSetMemberNote(WorldSession* session, std::string const& note, uint64 guid, bool isPublic);
+    void HandleSetMemberNote(WorldSession* session, std::string const& note, ObjectGuid guid, bool isPublic);
     void HandleSetRankInfo(WorldSession* session, uint32 rankIndex, std::string const& name, uint32 rights, uint32 moneyPerDay, GuildBankRightsAndSlotsVec const& rightsAndSlots);
     void HandleBuyBankTab(WorldSession* session, uint8 tabId);
     void HandleInviteMember(WorldSession* session, std::string const& name);
     void HandleAcceptMember(WorldSession* session);
     void HandleLeaveMember(WorldSession* session);
-    void HandleRemoveMember(WorldSession* session, uint64 guid);
-    void HandleUpdateMemberRank(WorldSession* session, uint64 guid, bool demote);
-    void HandleSetMemberRank(WorldSession* session, uint64 guid, uint64 setterGuid, uint32 rankIndex);
+    void HandleRemoveMember(WorldSession* session, ObjectGuid guid);
+    void HandleUpdateMemberRank(WorldSession* session, ObjectGuid guid, bool demote);
+    void HandleSetMemberRank(WorldSession* session, ObjectGuid guid, ObjectGuid setterGuid, uint32 rankIndex);
     void HandleAddNewRank(WorldSession* session, std::string const& name);
     void HandleRemoveRank(WorldSession* session, uint32 rankIndex);
     void HandleSwitchRank(WorldSession* session, uint32 rankIndex, bool up);
@@ -834,7 +834,7 @@ public:
     void HandleSetBankTabNote(WorldSession* session, uint32 tabId, std::string note);
     void HandleQueryGuildRecipes(WorldSession* session);
     void HandleQueryGuildMembersForRecipe(WorldSession* session, uint32 spellId, uint32 skillId, uint32 skillValue);
-    void HandleQueryGuildMemberRecipes(WorldSession* session, uint64 memberGuid, uint32 skillId);
+    void HandleQueryGuildMemberRecipes(WorldSession* session, ObjectGuid memberGuid, uint32 skillId);
     void HandleRequestChallengeUpdate(WorldSession* session);
 
     void UpdateMemberData(Player* player, uint8 dataid, uint32 value);
@@ -891,10 +891,10 @@ public:
 
     // Members
     // Adds member to guild. If rankId == GUILD_RANK_NONE, lowest rank is assigned.
-    bool AddMember(uint64 guid, uint8 rankId = GUILD_RANK_NONE);
-    void DeleteMember(uint64 guid, bool isDisbanding = false, bool isKicked = false, bool canDeleteGuild = false);
-    bool ChangeMemberRank(uint64 guid, uint32 newRank);
-    bool IsMember(uint64 guid) const;
+    bool AddMember(ObjectGuid guid, uint8 rankId = GUILD_RANK_NONE);
+    void DeleteMember(ObjectGuid guid, bool isDisbanding = false, bool isKicked = false, bool canDeleteGuild = false);
+    bool ChangeMemberRank(ObjectGuid guid, uint32 newRank);
+    bool IsMember(ObjectGuid guid) const;
     uint32 GetMembersCount() { return m_members.size(); }
 
     // Bank
@@ -909,7 +909,7 @@ public:
     void GiveXP(uint32 xp, Player* source);
     uint64 GetExperience() const { return _experience; }
 
-    void AddGuildNews(uint8 type, uint64 guid, uint32 flags, uint32 value);
+    void AddGuildNews(uint8 type, ObjectGuid guid, uint32 flags, uint32 value);
 
     EmblemInfo const& GetEmblemInfo() const { return m_emblemInfo; }
     void ResetTimes(bool weekly);
@@ -920,9 +920,9 @@ public:
     void RewardReputation(Player* player, float rep);
 
     void LoadGuildChallenges(Field* fields);
-    void ResetGuildChallenges(SQLTransaction trans);
+    void ResetGuildChallenges(CharacterDatabaseTransaction trans);
     void CompleteGuildChallenge(GuildChallengeType type, Player* player);
-    void SaveChallengesToDB(SQLTransaction trans);
+    void SaveChallengesToDB(CharacterDatabaseTransaction trans);
 
     inline uint8 GetPurchasedTabsSize() const { return uint8(m_bankTabs.size()); }
 
@@ -931,9 +931,9 @@ public:
     void LevelUp(uint32 oldLevel, Player *source);
 
 protected:
-    uint32 m_id;
+    ObjectGuid::LowType m_id;
     std::string m_name;
-    uint64 m_leaderGuid;
+    ObjectGuid m_leaderGuid;
     std::string m_motd;
     std::string m_info;
     time_t m_createdDate;
@@ -1004,16 +1004,16 @@ private:
     inline BankTab* GetBankTab(uint8 tabId) { return tabId < m_bankTabs.size() ? m_bankTabs[tabId] : NULL; }
     inline const BankTab* GetBankTab(uint8 tabId) const { return tabId < m_bankTabs.size() ? m_bankTabs[tabId] : NULL; }
 
-    inline const Member* GetMember(uint64 guid) const
+    inline Member const* GetMember(ObjectGuid guid) const
     {
-        Members::const_iterator itr = m_members.find(GUID_LOPART(guid));
-        return itr != m_members.end() ? itr->second : NULL;
+        auto itr = m_members.find(guid.GetCounter());
+        return itr != m_members.end() ? itr->second : nullptr;
     }
 
-    inline Member* GetMember(uint64 guid)
+    inline Member* GetMember(ObjectGuid guid)
     {
-        Members::iterator itr = m_members.find(GUID_LOPART(guid));
-        return itr != m_members.end() ? itr->second : NULL;
+        auto itr = m_members.find(guid.GetCounter());
+        return itr != m_members.end() ? itr->second : nullptr;
     }
 
     inline Member* GetMember(std::string const& name)
@@ -1025,11 +1025,11 @@ private:
         return NULL;
     }
 
-    inline void DeleteMemberFromDB(uint32 lowguid) const
+    inline void DeleteMemberFromDB(ObjectGuid::LowType lowguid) const
     {
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_GUILD_MEMBER);
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_GUILD_MEMBER);
         stmt->setUInt32(0, lowguid);
-        CharacterDatabase.Execute(stmt, DBConnection::Guild);
+        CharacterDatabase.Execute(stmt);
     }
 
     // Creates log holders (either when loading or when creating guild)
@@ -1043,8 +1043,8 @@ private:
     // Update account number when member added/removed from guild
     void UpdateAccountsNumber();
     bool IsLeader(Player* player) const;
-    void DeleteBankItems(SQLTransaction& trans, bool removeItemsFromDB = false);
-    bool ModifyBankMoney(SQLTransaction& trans, uint64 amount, bool add);
+    void DeleteBankItems(CharacterDatabaseTransaction trans, bool removeItemsFromDB = false);
+    bool ModifyBankMoney(CharacterDatabaseTransaction trans, uint64 amount, bool add);
     void SetLeaderGUID(Member* pLeader);
 
     void SetRankBankMoneyPerDay(uint32 rankId, uint32 moneyPerDay);
@@ -1057,14 +1057,14 @@ private:
 
     int32 GetMemberRemainingSlots(Member const* member, uint8 tabId) const;
     int32 GetMemberRemainingMoney(Member const* member) const;
-    void UpdateMemberWithdrawSlots(SQLTransaction& trans, uint64 guid, uint8 tabId);
-    bool MemberHasTabRights(uint64 guid, uint8 tabId, uint32 rights) const;
+    void UpdateMemberWithdrawSlots(CharacterDatabaseTransaction trans, ObjectGuid guid, uint8 tabId);
+    bool MemberHasTabRights(ObjectGuid guid, uint8 tabId, uint32 rights) const;
 
     void LogEvent(GuildEventLogTypes eventType, uint32 playerGuid1, uint32 playerGuid2 = 0, uint8 newRank = 0);
-    void LogBankEvent(SQLTransaction& trans, GuildBankEventLogTypes eventType, uint8 tabId, uint32 playerGuid, uint32 itemOrMoney, uint16 itemStackCount = 0, uint8 destTabId = 0);
+    void LogBankEvent(CharacterDatabaseTransaction trans, GuildBankEventLogTypes eventType, uint8 tabId, uint32 playerGuid, uint32 itemOrMoney, uint16 itemStackCount = 0, uint8 destTabId = 0);
 
     Item* GetItem(uint8 tabId, uint8 slotId) const;
-    void RemoveItem(SQLTransaction& trans, uint8 tabId, uint8 slotId);
+    void RemoveItem(CharacterDatabaseTransaction trans, uint8 tabId, uint8 slotId);
     void MoveItems(MoveItemData* pSrc, MoveItemData* pDest, uint32 splitedAmount);
     bool DoItemsMove(MoveItemData* pSrc, MoveItemData* pDest, bool sendError, uint32 splitedAmount = 0);
 
@@ -1074,6 +1074,6 @@ private:
     void SendBankContentUpdate(MoveItemData* pSrc, MoveItemData* pDest) const;
     void SendBankContentUpdate(uint8 tabId, SlotIds slots) const;
     void SendGuildReputationWeeklyCap(WorldSession* session) const;
-    void SendGuildRanksUpdate(uint64 setterGuid, Member* member, bool promote);
+    void SendGuildRanksUpdate(ObjectGuid setterGuid, Member* member, bool promote);
 };
 #endif

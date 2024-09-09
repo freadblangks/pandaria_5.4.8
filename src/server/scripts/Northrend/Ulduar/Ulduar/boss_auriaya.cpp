@@ -154,7 +154,7 @@ class boss_auriaya : public CreatureScript
                     }
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (!instance->CheckRequiredBosses(BOSS_AURIAYA, who->ToPlayer()))
                 {
@@ -163,7 +163,7 @@ class boss_auriaya : public CreatureScript
                     return;
                 }
 
-                _EnterCombat();
+                _JustEngagedWith();
                 summons.DoZoneInCombat();
                 Talk(SAY_AGGRO);
                 DoCast(me, SPELL_INSTAKILL_ARACHNOPOD, true);
@@ -385,7 +385,7 @@ class npc_sanctum_sentry : public CreatureScript
                 events.ScheduleEvent(EVENT_POUNCE, 1);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (me->ToTempSummon())
                 {
@@ -561,7 +561,7 @@ class npc_feral_defender : public CreatureScript
             InstanceScript* instance;
             EventMap events;
             bool firstPounce;
-            std::set<uint64> rushTargets;
+            std::set<ObjectGuid> rushTargets;
         };
 
         CreatureAI* GetAI(Creature* creature) const override

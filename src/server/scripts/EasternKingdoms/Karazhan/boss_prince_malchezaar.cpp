@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -103,15 +103,15 @@ class netherspite_infernal : public CreatureScript
 
         struct netherspite_infernalAI : public ScriptedAI
         {
-            netherspite_infernalAI(Creature* creature) : ScriptedAI(creature), HellfireTimer(0), CleanupTimer(0), malchezaarGUID(0), point(nullptr) { }
+            netherspite_infernalAI(Creature* creature) : ScriptedAI(creature), HellfireTimer(0), CleanupTimer(0), malchezaarGUID(), point(nullptr) { }
 
             uint32 HellfireTimer;
             uint32 CleanupTimer;
-            uint64 malchezaarGUID;
+            ObjectGuid malchezaarGUID;
             InfernalPoint* point;
 
             void Reset() override { }
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
             void MoveInLineOfSight(Unit* /*who*/) override { }
 
             void UpdateAI(uint32 diff) override
@@ -194,11 +194,11 @@ class boss_malchezaar : public CreatureScript
             uint32 AxesTargetSwitchTimer;
             uint32 InfernalCleanupTimer;
 
-            std::vector<uint64> infernals;
+            std::vector<ObjectGuid> infernals;
             std::vector<InfernalPoint*> positions;
 
-            uint64 axes[2];
-            uint64 enfeeble_targets[5];
+            ObjectGuid axes[2];
+            ObjectGuid enfeeble_targets[5];
             uint32 enfeeble_health[5];
 
             uint32 phase;
@@ -212,7 +212,7 @@ class boss_malchezaar : public CreatureScript
 
                 for (uint8 i = 0; i < 5; ++i)
                 {
-                    enfeeble_targets[i] = 0;
+                    enfeeble_targets[i] = ObjectGuid::Empty;
                     enfeeble_health[i] = 0;
                 }
 
@@ -232,7 +232,7 @@ class boss_malchezaar : public CreatureScript
                 phase = 1;
 
                 if (instance)
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_NETHER_DOOR), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_NETHER_DOOR), true);
             }
 
             void KilledUnit(Unit* /*victim*/) override
@@ -253,15 +253,15 @@ class boss_malchezaar : public CreatureScript
                     positions.push_back(&InfernalPoints[i]);
 
                 if (instance)
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_NETHER_DOOR), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_NETHER_DOOR), true);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
 
                 if (instance)
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_NETHER_DOOR), false); // Open the door leading further in
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_NETHER_DOOR), false); // Open the door leading further in
             }
 
             void InfernalCleanup()
@@ -288,7 +288,7 @@ class boss_malchezaar : public CreatureScript
                     Unit* axe = ObjectAccessor::GetUnit(*me, axes[i]);
                     if (axe && axe->IsAlive())
                         axe->Kill(axe);
-                    axes[i] = 0;
+                    axes[i] = ObjectGuid::Empty;
                 }
             }
 
@@ -345,7 +345,7 @@ class boss_malchezaar : public CreatureScript
                     Unit* target = ObjectAccessor::GetUnit(*me, enfeeble_targets[i]);
                     if (target && target->IsAlive())
                         target->SetHealth(enfeeble_health[i]);
-                    enfeeble_targets[i] = 0;
+                    enfeeble_targets[i] = ObjectGuid::Empty;
                     enfeeble_health[i] = 0;
                 }
             }
@@ -355,7 +355,7 @@ class boss_malchezaar : public CreatureScript
                 InfernalPoint* point = nullptr;
                 Position pos;
                 if ((me->GetMapId() != 532) || positions.empty())
-                    me->GetRandomNearPosition(pos, 60);
+                    pos = me->GetRandomNearPosition(60);
                 else
                 {
                     point = Trinity::Containers::SelectRandomContainerElement(positions);
@@ -391,7 +391,7 @@ class boss_malchezaar : public CreatureScript
                 if (me->HasUnitState(UNIT_STATE_STUNNED))      // While shifting to phase 2 malchezaar stuns himself
                     return;
 
-                if (me->GetUInt64Value(UNIT_FIELD_TARGET) != me->GetVictim()->GetGUID())
+                if (me->GetGuidValue(UNIT_FIELD_TARGET) != me->GetVictim()->GetGUID())
                     me->SetTarget(me->GetVictim()->GetGUID());
 
                 if (phase == 1)
@@ -578,7 +578,7 @@ class boss_malchezaar : public CreatureScript
                 if (infernals.empty())
                     return;
 
-                for (std::vector<uint64>::iterator itr = infernals.begin(); itr != infernals.end(); ++itr)
+                for (std::vector<ObjectGuid>::iterator itr = infernals.begin(); itr != infernals.end(); ++itr)
                 {
                     if (*itr == infernal->GetGUID())
                     {

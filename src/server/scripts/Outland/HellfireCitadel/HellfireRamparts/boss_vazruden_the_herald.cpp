@@ -72,7 +72,7 @@ class boss_nazan : public CreatureScript
         {
             boss_nazanAI(Creature* creature) : BossAI(creature, DATA_NAZAN)
             {
-                VazrudenGUID = 0;
+                VazrudenGUID = ObjectGuid::Empty;
                 flight = true;
             }
 
@@ -83,7 +83,7 @@ class boss_nazan : public CreatureScript
                 Turn_Timer = 0;
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void IsSummonedBy(Unit* summoner) override
             {
@@ -204,7 +204,7 @@ class boss_nazan : public CreatureScript
                 uint32 Fly_Timer;
                 uint32 Turn_Timer;
                 bool flight;
-                uint64 VazrudenGUID;
+                ObjectGuid VazrudenGUID;
         };
 
         CreatureAI* GetAI(Creature* creature) const override
@@ -231,10 +231,10 @@ class boss_vazruden : public CreatureScript
                 _Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
-                _EnterCombat();
+                _JustEngagedWith();
             }
 
             void KilledUnit(Unit* who) override
@@ -250,7 +250,7 @@ class boss_vazruden : public CreatureScript
 
                 _JustDied();
 
-                if (Creature* controller = ObjectAccessor::GetCreature(*me, me->GetInstanceScript() ? me->GetInstanceScript()->GetData64(NPC_VAZRUDEN_HERALD) : 0))
+                if (Creature* controller = ObjectAccessor::GetCreature(*me, me->GetInstanceScript() ? me->GetInstanceScript()->GetGuidData(NPC_VAZRUDEN_HERALD) : ObjectGuid::Empty))
                     controller->AI()->DoAction(1);
             }
 
@@ -319,8 +319,8 @@ class boss_vazruden_the_herald : public CreatureScript
                 summoned = false;
                 sentryDown = false;
                 lootSpawned = false;
-                NazanGUID = 0;
-                VazrudenGUID = 0;
+                NazanGUID = ObjectGuid::Empty;
+                VazrudenGUID = ObjectGuid::Empty;
             }
 
             void Reset() override
@@ -341,7 +341,7 @@ class boss_vazruden_the_herald : public CreatureScript
                     if (Nazan)
                     {
                         Nazan->DisappearAndDie();
-                        NazanGUID = 0;
+                        NazanGUID = ObjectGuid::Empty;
                     }
 
                     Creature* Vazruden = Unit::GetCreature(*me, VazrudenGUID);
@@ -350,7 +350,7 @@ class boss_vazruden_the_herald : public CreatureScript
                     if (Vazruden)
                     {
                         Vazruden->DisappearAndDie();
-                        VazrudenGUID = 0;
+                        VazrudenGUID = ObjectGuid::Empty;
                     }
                     summoned = false;
                     me->ClearUnitState(UNIT_STATE_ROOT);
@@ -372,7 +372,7 @@ class boss_vazruden_the_herald : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (phase == 0)
                 {
@@ -484,8 +484,8 @@ class boss_vazruden_the_herald : public CreatureScript
                 uint32 waypoint;
                 uint32 check;
                 bool sentryDown;
-                uint64 NazanGUID;
-                uint64 VazrudenGUID;
+                ObjectGuid NazanGUID;
+                ObjectGuid VazrudenGUID;
                 bool summoned;
                 bool lootSpawned;
         };
@@ -510,7 +510,7 @@ class npc_hellfire_sentry : public CreatureScript
                 KidneyShot_Timer = urand(3000, 7000);
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void JustDied(Unit* killer) override
             {

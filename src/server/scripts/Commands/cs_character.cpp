@@ -101,7 +101,7 @@ public:
     static bool GetDeletedCharacterInfoList(DeletedInfoList& foundList, std::string searchString)
     {
         PreparedQueryResult result;
-        PreparedStatement* stmt;
+        CharacterDatabasePreparedStatement* stmt;
         if (!searchString.empty())
         {
             // search by GUID
@@ -220,7 +220,7 @@ public:
             return;
         }
 
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UDP_RESTORE_DELETE_INFO);
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UDP_RESTORE_DELETE_INFO);
         stmt->setString(0, delInfo.name);
         stmt->setUInt32(1, delInfo.accountId);
         stmt->setUInt32(2, delInfo.lowGuid);
@@ -238,13 +238,13 @@ public:
                     declinedName->name[i] = (*result)[4 + i].GetString();
             }
 
-            sWorld->AddCharacterNameData(delInfo.lowGuid, delInfo.name, (*result)[2].GetUInt8(), (*result)[0].GetUInt8(), (*result)[1].GetUInt8(), (*result)[3].GetUInt8());
+            sWorld->AddCharacterNameData(ObjectGuid(HighGuid::Player, delInfo.lowGuid), delInfo.name, (*result)[2].GetUInt8(), (*result)[0].GetUInt8(), (*result)[1].GetUInt8(), (*result)[3].GetUInt8());
         }
 
         sServiceMgr->ExecutedServices(delInfo.lowGuid, SERVICE_TYPE_CHAR_RESTORE, std::string("Restored char name: ") + delInfo.name, "");
     }
 
-    static void HandleCharacterLevel(Player* player, uint64 playerGuid, uint32 oldLevel, uint32 newLevel, ChatHandler* handler)
+    static void HandleCharacterLevel(Player* player, ObjectGuid playerGuid, uint32 oldLevel, uint32 newLevel, ChatHandler* handler)
     {
         if (player)
         {
@@ -265,9 +265,9 @@ public:
         else
         {
             // Update level and reset XP, everything else will be updated at login
-            PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_LEVEL);
+            CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_LEVEL);
             stmt->setUInt8(0, uint8(newLevel));
-            stmt->setUInt32(1, GUID_LOPART(playerGuid));
+            stmt->setUInt32(1, playerGuid.GetCounter());
             CharacterDatabase.Execute(stmt);
         }
     }
@@ -318,7 +318,7 @@ public:
     static bool HandleCharacterRenameCommand(ChatHandler* handler, char const* args)
     {
         Player* target;
-        uint64 targetGuid;
+        ObjectGuid targetGuid;
         std::string targetName;
         if (!handler->extractPlayerTarget((char*)args, &target, &targetGuid, &targetName))
             return false;
@@ -333,7 +333,7 @@ public:
             if (target)
             {
                 // check online security
-                if (handler->HasLowerSecurity(target, 0))
+                if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
                     return false;
 
                 playerOldName = target->GetName();
@@ -371,7 +371,7 @@ public:
                 }
             }
 
-            PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHECK_NAME);
+            CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHECK_NAME);
             stmt->setString(0, newName);
             PreparedQueryResult result = CharacterDatabase.Query(stmt);
             if (result)
@@ -397,7 +397,7 @@ public:
             {
                 stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_NAME_BY_GUID);
                 stmt->setString(0, newName);
-                stmt->setUInt32(1, GUID_LOPART(targetGuid));
+                stmt->setUInt32(1, targetGuid.GetCounter());
                 CharacterDatabase.Execute(stmt);
             }
 
@@ -411,14 +411,14 @@ public:
                     sLog->outCommand(session->GetAccountId(), "GM %s (Account: %u) forced rename %s to player %s (Account: %u)", player->GetName().c_str(), session->GetAccountId(), newName.c_str(), playerOldName.c_str(), sObjectMgr->GetPlayerAccountIdByGUID(targetGuid));
             }
             else
-                sLog->outCommand(0, "CONSOLE forced rename '%s' to '%s' (GUID: %u)", playerOldName.c_str(), newName.c_str(), GUID_LOPART(targetGuid));
+                sLog->outCommand(0, "CONSOLE forced rename '%s' to '%s' (GUID: %u)", playerOldName.c_str(), newName.c_str(), targetGuid.GetCounter());
         }
         else
         {
             if (target)
             {
                 // check online security
-                if (handler->HasLowerSecurity(target, 0))
+                if (handler->HasLowerSecurity(target, ObjectGuid::Empty))
                     return false;
 
                 handler->PSendSysMessage(LANG_RENAME_PLAYER, handler->GetNameLink(target).c_str());
@@ -431,11 +431,11 @@ public:
                     return false;
 
                 std::string oldNameLink = handler->playerLink(targetName);
-                handler->PSendSysMessage(LANG_RENAME_PLAYER_GUID, oldNameLink.c_str(), GUID_LOPART(targetGuid));
+                handler->PSendSysMessage(LANG_RENAME_PLAYER_GUID, oldNameLink.c_str(), targetGuid.GetCounter());
 
-                PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ADD_AT_LOGIN_FLAG);
+                CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ADD_AT_LOGIN_FLAG);
                 stmt->setUInt16(0, uint16(AT_LOGIN_RENAME));
-                stmt->setUInt32(1, GUID_LOPART(targetGuid));
+                stmt->setUInt32(1, targetGuid.GetCounter());
                 CharacterDatabase.Execute(stmt);
             }
         }
@@ -459,7 +459,7 @@ public:
         }
 
         Player* target;
-        uint64 targetGuid;
+        ObjectGuid targetGuid;
         std::string targetName;
         if (!handler->extractPlayerTarget(nameStr, &target, &targetGuid, &targetName))
             return false;
@@ -487,24 +487,24 @@ public:
     static bool HandleCharacterCustomizeCommand(ChatHandler* handler, char const* args)
     {
         Player* target;
-        uint64 targetGuid;
+        ObjectGuid targetGuid;
         std::string targetName;
         if (!handler->extractPlayerTarget((char*)args, &target, &targetGuid, &targetName))
             return false;
 
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ADD_AT_LOGIN_FLAG);
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ADD_AT_LOGIN_FLAG);
         stmt->setUInt16(0, uint16(AT_LOGIN_CUSTOMIZE));
         if (target)
         {
             handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER, handler->GetNameLink(target).c_str());
             target->SetAtLoginFlag(AT_LOGIN_CUSTOMIZE);
-            stmt->setUInt32(1, target->GetGUIDLow());
+            stmt->setUInt32(1, target->GetGUID().GetCounter());
         }
         else
         {
             std::string oldNameLink = handler->playerLink(targetName);
-            stmt->setUInt32(1, GUID_LOPART(targetGuid));
-            handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER_GUID, oldNameLink.c_str(), GUID_LOPART(targetGuid));
+            stmt->setUInt32(1, targetGuid.GetCounter());
+            handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER_GUID, oldNameLink.c_str(), targetGuid.GetCounter());
         }
         CharacterDatabase.Execute(stmt);
 
@@ -514,25 +514,25 @@ public:
     static bool HandleCharacterChangeFactionCommand(ChatHandler* handler, char const* args)
     {
         Player* target;
-        uint64 targetGuid;
+        ObjectGuid targetGuid;
         std::string targetName;
 
         if (!handler->extractPlayerTarget((char*)args, &target, &targetGuid, &targetName))
             return false;
 
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ADD_AT_LOGIN_FLAG);
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ADD_AT_LOGIN_FLAG);
         stmt->setUInt16(0, uint16(AT_LOGIN_CHANGE_FACTION));
         if (target)
         {
             handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER, handler->GetNameLink(target).c_str());
             target->SetAtLoginFlag(AT_LOGIN_CHANGE_FACTION);
-            stmt->setUInt32(1, target->GetGUIDLow());
+            stmt->setUInt32(1, target->GetGUID().GetCounter());
         }
         else
         {
             std::string oldNameLink = handler->playerLink(targetName);
-            handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER_GUID, oldNameLink.c_str(), GUID_LOPART(targetGuid));
-            stmt->setUInt32(1, GUID_LOPART(targetGuid));
+            handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER_GUID, oldNameLink.c_str(), targetGuid.GetCounter());
+            stmt->setUInt32(1, targetGuid.GetCounter());
         }
         CharacterDatabase.Execute(stmt);
 
@@ -542,26 +542,26 @@ public:
     static bool HandleCharacterChangeRaceCommand(ChatHandler* handler, char const* args)
     {
         Player* target;
-        uint64 targetGuid;
+        ObjectGuid targetGuid;
         std::string targetName;
         if (!handler->extractPlayerTarget((char*)args, &target, &targetGuid, &targetName))
             return false;
 
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ADD_AT_LOGIN_FLAG);
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_ADD_AT_LOGIN_FLAG);
         stmt->setUInt16(0, uint16(AT_LOGIN_CHANGE_RACE));
         if (target)
         {
             /// @todo add text into database
             handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER, handler->GetNameLink(target).c_str());
             target->SetAtLoginFlag(AT_LOGIN_CHANGE_RACE);
-            stmt->setUInt32(1, target->GetGUIDLow());
+            stmt->setUInt32(1, target->GetGUID().GetCounter());
         }
         else
         {
             std::string oldNameLink = handler->playerLink(targetName);
             /// @todo add text into database
-            handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER_GUID, oldNameLink.c_str(), GUID_LOPART(targetGuid));
-            stmt->setUInt32(1, GUID_LOPART(targetGuid));
+            handler->PSendSysMessage(LANG_CUSTOMIZE_PLAYER_GUID, oldNameLink.c_str(), targetGuid.GetCounter());
+            stmt->setUInt32(1, targetGuid.GetCounter());
         }
         CharacterDatabase.Execute(stmt);
 
@@ -736,7 +736,7 @@ public:
 
         // Call the appropriate function to delete them (current account for deleted characters is 0)
         for (DeletedInfoList::const_iterator itr = foundList.begin(); itr != foundList.end(); ++itr)
-            Player::DeleteFromDB(itr->lowGuid, 0, false, true);
+            Player::DeleteFromDB(ObjectGuid(HighGuid::Player, itr->lowGuid), 0, false, true);
 
         return true;
     }
@@ -788,10 +788,10 @@ public:
         if (!normalizePlayerName(characterName))
             return false;
 
-        uint64 characterGuid;
+        ObjectGuid characterGuid;
         uint32 accountId;
 
-        Player* player = sObjectAccessor->FindPlayerByName(characterName);
+        Player* player = ObjectAccessor::FindPlayerByName(characterName);
         if (player)
         {
             characterGuid = player->GetGUID();
@@ -814,7 +814,7 @@ public:
         AccountMgr::GetName(accountId, accountName);
 
         Player::DeleteFromDB(characterGuid, accountId, true, true);
-        handler->PSendSysMessage(LANG_CHARACTER_DELETED, characterName.c_str(), GUID_LOPART(characterGuid), accountName.c_str(), accountId);
+        handler->PSendSysMessage(LANG_CHARACTER_DELETED, characterName.c_str(), characterGuid.GetCounter(), accountName.c_str(), accountId);
 
         return true;
     }
@@ -833,7 +833,7 @@ public:
         }
 
         Player* target;
-        uint64 targetGuid;
+        ObjectGuid targetGuid;
         std::string targetName;
         if (!handler->extractPlayerTarget(nameStr, &target, &targetGuid, &targetName))
             return false;
@@ -924,11 +924,11 @@ public:
             guidStr = strtok(NULL, " ");
         }
 
-        uint32 guid = 0;
+        ObjectGuid guid = ObjectGuid::Empty;
 
         if (guidStr)
         {
-            guid = uint32(atoi(guidStr));
+            guid = ObjectGuid(HighGuid::Player, uint32(atoi(guidStr)));
             if (!guid)
             {
                 handler->PSendSysMessage(LANG_INVALID_CHARACTER_GUID);
@@ -938,31 +938,32 @@ public:
 
             if (sObjectMgr->GetPlayerAccountIdByGUID(guid))
             {
-                handler->PSendSysMessage(LANG_CHARACTER_GUID_IN_USE, guid);
+                handler->PSendSysMessage(LANG_CHARACTER_GUID_IN_USE, guid.GetCounter());
                 handler->SetSentErrorMessage(true);
                 return false;
             }
         }
 
-        SQLTransaction trans = CharacterDatabase.BeginTransaction();
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
 
         switch (PlayerDumpReader().LoadDump(fileStr, accountId, name, guid, trans))
         {
             case DUMP_SUCCESS:
-                if (auto task = CharacterDatabase.SafeAsync(trans))
-                {
-                    CommandHolder cmd = handler->CreateCommandHolder(task);
-                    task->ContinueWith([cmd](bool result)
-                    {
-                        ChatHandler& ch = cmd->GetHandler();
-                        if (result)
-                            ch.PSendSysMessage(LANG_COMMAND_IMPORT_SUCCESS);
-                        else
-                            ch.SendSysMessage("Transaction failed");
+                handler->PSendSysMessage(LANG_COMMAND_IMPORT_SUCCESS);
+                // if (auto task = CharacterDatabase.SafeAsync(trans))
+                // {
+                //     CommandHolder cmd = handler->CreateCommandHolder(task);
+                //     task->ContinueWith([cmd](bool result)
+                //     {
+                //         ChatHandler& ch = cmd->GetHandler();
+                //         if (result)
+                //             ch.PSendSysMessage(LANG_COMMAND_IMPORT_SUCCESS);
+                //         else
+                //             ch.SendSysMessage("Transaction failed");
 
-                        cmd->FinishCommand(result);
-                    });
-                }
+                //         cmd->FinishCommand(result);
+                //     });
+                // }
                 break;
             case DUMP_FILE_OPEN_ERROR:
                 handler->PSendSysMessage(LANG_FILE_OPEN_FAIL, fileStr);
@@ -996,10 +997,10 @@ public:
         if (!fileStr || !playerStr)
             return false;
 
-        uint64 guid;
+        ObjectGuid guid;
         // character name can't start from number
         if (isNumeric(playerStr))
-            guid = MAKE_NEW_GUID(atoi(playerStr), 0, HIGHGUID_PLAYER);
+            guid = ObjectGuid(HighGuid::Player, uint32(atoi(playerStr)));
         else
         {
             std::string name = handler->extractPlayerNameFromLink(playerStr);
@@ -1045,7 +1046,7 @@ public:
     static bool HandleAntierrorCommand(ChatHandler* handler, char const* args)
     {
         Player* target = nullptr;
-        uint64 targetGuid = 0;
+        ObjectGuid targetGuid = ObjectGuid::Empty;
         std::string targetName;
 
         if (!handler->extractPlayerTarget((char*)args, &target, &targetGuid, &targetName))
@@ -1062,7 +1063,7 @@ public:
             z = target->m_homebindZ;
             zone = target->m_homebindAreaId;
         }
-        else if (QueryResult result = CharacterDatabase.PQuery("SELECT mapId, posX, posY, posZ, zoneId FROM character_homebind WHERE guid = %u;", GUID_LOPART(targetGuid)))
+        else if (QueryResult result = CharacterDatabase.PQuery("SELECT mapId, posX, posY, posZ, zoneId FROM character_homebind WHERE guid = %u;", targetGuid.GetCounter()))
         {
             Field *fields = result->Fetch();
             map = fields[0].GetUInt32();
@@ -1073,7 +1074,7 @@ public:
         }
         else
         {
-            CharacterNameData const* data = sWorld->GetCharacterNameData(GUID_LOPART(targetGuid));
+            CharacterNameData const* data = sWorld->GetCharacterNameData(targetGuid);
             if (!data)
                 return false;
 
@@ -1088,7 +1089,7 @@ public:
             zone = pinfo->areaId;
         }
 
-        uint32 guid = GUID_LOPART(targetGuid);
+        uint32 guid = targetGuid.GetCounter();
 
         if (target)
             target->TeleportTo(map, x, y, z, 0);
@@ -1123,7 +1124,7 @@ public:
             return false;
 
         Player *target = NULL;
-        uint64 tarGuid = 0;
+        ObjectGuid tarGuid = ObjectGuid::Empty;
         std::string nameStr;
 
         if (!handler->extractPlayerTarget(name, &target, &tarGuid, &nameStr))
@@ -1132,7 +1133,7 @@ public:
         if (handler->GetSession() && target == handler->GetSession()->GetPlayer())
             return false;
 
-        PreparedStatement *stmt = LoginDatabase.GetPreparedStatement(LOGIN_GET_ACCOUNT_ID_BY_USERNAME);
+        LoginDatabasePreparedStatement *stmt = LoginDatabase.GetPreparedStatement(LOGIN_GET_ACCOUNT_ID_BY_USERNAME);
         stmt->setString(0, userName);
         PreparedQueryResult result = LoginDatabase.Query(stmt);
 
@@ -1143,7 +1144,7 @@ public:
             return false;
         }
 
-        uint32 destAcc = result->Fetch()[0].GetUInt32();
+        ObjectGuid destAcc(HighGuid::WowAccount, result->Fetch()[0].GetUInt32());
 
         uint32 initialAcc = sObjectMgr->GetPlayerAccountIdByGUID(tarGuid);
 
@@ -1162,14 +1163,14 @@ public:
             ws->KickPlayer();
         }
 
-        uint32 guid = GUID_LOPART(tarGuid);
+        uint32 guid = tarGuid.GetCounter();
 
         // Sale from trade platform, character ban is still active.
         if (CharacterDatabase.PQuery("SELECT * FROM `character_banned` WHERE `guid` = %u AND `active` = 1", guid))
             CharacterDatabase.PExecute("DELETE FROM character_account_data WHERE guid = %u", guid);
 
-        CharacterDatabase.PExecute("UPDATE `characters` SET `account` = %u WHERE `guid` = %u", destAcc, guid);
-        sWorld->UpdateCharacterNameDataAccount(guid, destAcc);
+        CharacterDatabase.PExecute("UPDATE `characters` SET `account` = %u WHERE `guid` = %u", destAcc.GetCounter(), guid);
+        sWorld->UpdateCharacterNameDataAccount(tarGuid, destAcc);
 
         std::ostringstream oldAcc;
         oldAcc << "Old Account: " << initialAcc;
@@ -1178,7 +1179,7 @@ public:
         sServiceMgr->ExecutedServices(guid, SERVICE_TYPE_CHANGE_ACCOUNT, oldAcc.str(), newAcc.str());
 
         if (output)
-            handler->PSendSysMessage(LANG_CHANGE_ACCOUNT_OK, name, guid, userName, destAcc);
+            handler->PSendSysMessage(LANG_CHANGE_ACCOUNT_OK, name, guid, userName, destAcc.GetCounter());
         return true;
     }
 
@@ -1277,18 +1278,18 @@ public:
         uint32 newClass = strtoul(tempArgs[1], nullptr, 10);
 
         Player *target = NULL;
-        uint64 targetGuid;
+        ObjectGuid targetGuid;
         std::string targetName;
 
         if (!handler->extractPlayerTarget(tempArgs[0], &target, &targetGuid, &targetName))
             return false;
 
-        target = ObjectAccessor::FindPlayerInOrOutOfWorld(targetGuid);  // Update it because player may be out of world.
-        QueryResult result = CharacterDatabase.PQuery("SELECT class, race, account FROM characters WHERE guid = %u", GUID_LOPART(targetGuid));
+        target = ObjectAccessor::FindPlayer(targetGuid);  // Update it because player may be out of world.
+        QueryResult result = CharacterDatabase.PQuery("SELECT class, race, account FROM characters WHERE guid = %u", targetGuid.GetCounter());
         if (!result)
         {
             handler->SetSentErrorMessage(true);
-            handler->PSendSysMessage("DB Error! SELECT class, race FROM characters WHERE guid = %u have no result!", GUID_LOPART(targetGuid));
+            handler->PSendSysMessage("DB Error! SELECT class, race FROM characters WHERE guid = %u have no result!", targetGuid.GetCounter());
             return false;
         }
 
@@ -1300,7 +1301,7 @@ public:
         uint32 acc = field[2].GetUInt32();
 
         WorldSession* sess = sWorld->FindSession(acc);
-        uint32 guid = GUID_LOPART(targetGuid);
+        uint32 guid = targetGuid.GetCounter();
         if (target || (sess && sess->PlayerLoading()))  // Fucking asynchronism
         {
             handler->SetSentErrorMessage(true);
@@ -1339,7 +1340,7 @@ public:
         }
 
         sServiceMgr->RemoveOldSkillsFromDB(guid, newClass);
-        SQLTransaction trans = CharacterDatabase.BeginTransaction();
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
         trans->PAppend("UPDATE characters SET at_login = at_login | '%u' WHERE guid = '%u'", AT_LOGIN_CHANGE_FACTION, guid);
         trans->PAppend("UPDATE characters SET class = %u WHERE guid = %u", newClass, guid);
         CharacterDatabase.CommitTransaction(trans);

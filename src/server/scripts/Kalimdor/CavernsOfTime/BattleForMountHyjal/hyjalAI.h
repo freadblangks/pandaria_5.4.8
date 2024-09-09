@@ -126,7 +126,7 @@ struct hyjalAI : public npc_escortAI
 
     void EnterEvadeMode() override;                                  // Send creature back to spawn location and evade.
 
-    void EnterCombat(Unit* /*who*/);                                  // Used to reset cooldowns for our spells and to inform the raid that we're under attack
+    void JustEngagedWith(Unit* /*who*/) override;                                  // Used to reset cooldowns for our spells and to inform the raid that we're under attack
 
     void UpdateAI(uint32 diff) override;                       // Called to summon waves, check for boss deaths and to cast our spells.
 
@@ -161,9 +161,9 @@ struct hyjalAI : public npc_escortAI
     public:
         InstanceScript* instance;
 
-        uint64 PlayerGUID;
-        uint64 BossGUID[2];
-        uint64 VeinGUID[14];
+        ObjectGuid PlayerGUID;
+        ObjectGuid BossGUID[2];
+        ObjectGuid VeinGUID[14];
 
         uint32 NextWaveTimer;
         uint32 WaveCount;
@@ -194,7 +194,7 @@ struct hyjalAI : public npc_escortAI
         bool IsDummy;
         uint32 MassTeleportTimer;
         bool DoMassTeleport;
-        uint64 DummyGuid;
+        ObjectGuid DummyGuid;
 
         struct Spell
         {

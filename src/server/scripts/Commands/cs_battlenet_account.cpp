@@ -84,7 +84,7 @@ public:
                 {
                     TC_LOG_INFO("entities.player.character", "Battle.net account: %u (IP: %s) Character:[%s] (" UI64FMTD ") created Account %s",
                         handler->GetSession()->GetAccountId(), handler->GetSession()->GetRemoteAddress().c_str(),
-                        handler->GetSession()->GetPlayer()->GetName().c_str(), handler->GetSession()->GetPlayer()->GetGUID(),
+                        handler->GetSession()->GetPlayer()->GetName().c_str(), handler->GetSession()->GetPlayer()->GetGUID().GetRawValue(),
                         accountName);
                 }
                 break;
@@ -323,7 +323,7 @@ public:
         BigNumber randPassword;
         randPassword.SetRand(8 * 16);
 
-        switch (sAccountMgr->CreateAccount(accountName, ByteArrayToHexStr(randPassword.AsByteArray(), randPassword.GetNumBytes()), bnetAccountName, accountId, index))
+        switch (sAccountMgr->CreateAccount(accountName, Trinity::Impl::ByteArrayToHexStr(randPassword.AsByteArray(), randPassword.GetNumBytes()), bnetAccountName, accountId, index))
         {
             case AccountOpResult::AOR_OK:
                 handler->PSendSysMessage(LANG_ACCOUNT_CREATED, accountName.c_str());
@@ -331,7 +331,7 @@ public:
                 {
                     TC_LOG_INFO("entities.player.character", "Account: %u (IP: %s) Character:[%s] (" UI64FMTD ") created Account %s (Email: '%s')",
                         handler->GetSession()->GetAccountId(), handler->GetSession()->GetRemoteAddress().c_str(),
-                        handler->GetSession()->GetPlayer()->GetName().c_str(), handler->GetSession()->GetPlayer()->GetGUID(),
+                        handler->GetSession()->GetPlayer()->GetName().c_str(), handler->GetSession()->GetPlayer()->GetGUID().GetRawValue(),
                         accountName.c_str(), bnetAccountName.c_str());
                 }
                 break;

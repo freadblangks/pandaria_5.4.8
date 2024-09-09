@@ -124,7 +124,7 @@ struct npc_deepholm_wyvern : public CreatureAI
             clicker->CastSpell(clicker, SPELL_DEEPHOLM_INTRO_TAXI, true);
     }
 
-    void UpdateAI(const uint32 /*diff*/) { }
+    void UpdateAI(const uint32 /*diff*/) override { }
 };
 
 // Wyvern 45024
@@ -133,15 +133,15 @@ struct npc_deepholm_wyvern_ride : public CreatureAI
     npc_deepholm_wyvern_ride(Creature* creature) : CreatureAI(creature) { }
 
     TaskScheduler scheduler;
-    uint64 targetGUID;
-    uint64 aggraGUID;
+    ObjectGuid targetGUID;
+    ObjectGuid aggraGUID;
     uint32 delay;
 
     void IsSummonedBy(Unit* summoner) override
     {
         targetGUID = summoner->GetGUID();
         me->OverrideInhabitType(INHABIT_AIR);
-        me->SetAnimationTier(UnitAnimationTier::Fly);
+        me->SetAnimTier(AnimTier::Fly);
         me->UpdateMovementFlags();
         me->SetSpeed(MOVE_FLIGHT, 2.5f);
 
@@ -231,7 +231,7 @@ struct npc_maelstorm_aggra : public CreatureAI
     npc_maelstorm_aggra(Creature* creature) : CreatureAI(creature) { }
 
     TaskScheduler scheduler;
-    uint64 summonerGUID;
+    ObjectGuid summonerGUID;
     uint32 delay;
 
     void IsSummonedBy(Unit* summoner) override
@@ -317,7 +317,7 @@ class spell_deepholm_intro_teleport : public AuraScript
 {
     PrepareAuraScript(spell_deepholm_intro_teleport);
 
-    bool Load()
+    bool Load() override
     {
         isLoading = false;
         return true;

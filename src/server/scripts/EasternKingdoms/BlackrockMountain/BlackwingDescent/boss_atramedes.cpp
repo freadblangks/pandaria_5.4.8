@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -271,7 +271,7 @@ class boss_atramedes : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_MODULATION, urand(7000, 10000));
                 events.ScheduleEvent(EVENT_NEXT_SPELL, 5000);
@@ -508,7 +508,7 @@ class npc_sonar_pulse : public CreatureScript
                         // Через 1сек нпц начинает движение
                         case EVENT_SONAR_PULSE_MOVE:
                             if (target)
-                                me->GetNearPosition(pos, 50.0f, me->GetAngle(target->GetPositionX(), target->GetPositionY()));
+                                pos = me->GetNearPosition(50.0f, me->GetAngle(target->GetPositionX(), target->GetPositionY()));
                             me->GetMotionMaster()->MovePoint(1, pos);
                             break;
                     }

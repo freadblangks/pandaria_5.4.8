@@ -62,7 +62,7 @@ class boss_gurtogg_bloodboil : public CreatureScript
 
             InstanceScript* instance;
 
-            uint64 TargetGUID;
+            ObjectGuid TargetGUID;
 
             float TargetThreat;
 
@@ -84,7 +84,7 @@ class boss_gurtogg_bloodboil : public CreatureScript
                 if (instance)
                     instance->SetData(DATA_GURTOGG_BLOOD_BOIL_EVENT, NOT_STARTED);
 
-                TargetGUID = 0;
+                TargetGUID = ObjectGuid::Empty;
 
                 TargetThreat = 0;
 
@@ -105,7 +105,7 @@ class boss_gurtogg_bloodboil : public CreatureScript
                 me->ApplySpellImmune(0, IMMUNITY_EFFECT,SPELL_EFFECT_ATTACK_ME, false);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (!instance || !instance->CheckRequiredBosses(DATA_GURTOGG_BLOOD_BOIL_EVENT, who->ToPlayer()))
                 {
@@ -133,7 +133,7 @@ class boss_gurtogg_bloodboil : public CreatureScript
                 DoPlaySoundToSet(me, 11439);
             }
 
-            void RevertThreatOnTarget(uint64 guid)
+            void RevertThreatOnTarget(ObjectGuid guid)
             {
                 Unit* unit = nullptr;
                 unit = Unit::GetUnit(*me, guid);
@@ -261,7 +261,7 @@ class boss_gurtogg_bloodboil : public CreatureScript
                     {
                         if (TargetGUID)
                             RevertThreatOnTarget(TargetGUID);
-                        TargetGUID = 0;
+                        TargetGUID = ObjectGuid::Empty;
                         Phase1 = true;
                         BloodboilTimer = 10000;
                         BloodboilCount = 0;

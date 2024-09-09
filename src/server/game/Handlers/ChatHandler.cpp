@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -163,7 +163,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
                     break;
                 default:
                     TC_LOG_ERROR("network", "Player %s (GUID: %u) sent a chatmessage with an invalid language/message type combination",
-                        GetPlayer()->GetName().c_str(), GetPlayer()->GetGUIDLow());
+                        GetPlayer()->GetName().c_str(), GetPlayer()->GetGUID().GetCounter());
 
                     recvData.rfinish();
                     return;
@@ -310,7 +310,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
             if (sWorld->getIntConfig(CONFIG_CHAT_STRICT_LINK_CHECKING_SEVERITY) && !ChatHandler(this).isValidChatMessage(msg.c_str()))
             {
                 TC_LOG_ERROR("network", "Player %s (GUID: %u) sent a chatmessage with an invalid link: %s", GetPlayer()->GetName().c_str(),
-                    GetPlayer()->GetGUIDLow(), msg.c_str());
+                    GetPlayer()->GetGUID().GetCounter(), msg.c_str());
 
                 if (sWorld->getIntConfig(CONFIG_CHAT_STRICT_LINK_CHECKING_KICK))
                     KickPlayer();
@@ -319,11 +319,6 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
             }
         }
     }
-
-    if (type != CHAT_MSG_WHISPER && lang != LANG_ADDON && sender->IsInWorld() && (!(type == CHAT_MSG_SAY || type == CHAT_MSG_YELL || type == CHAT_MSG_EMOTE || type == CHAT_MSG_TEXT_EMOTE) || sender->GetMap()->Instanceable()))
-        if (Group* group = sender->GetGroup() ? sender->GetGroup() : sender->GetMap()->GetInstanceGroup())
-            if (group->IsLogging())
-                group->LogChat(ChatMsg(type), sender->GetGUID(), msg);
 
     /// filtering of bad words
     if(sWorld->getBoolConfig(CONFIG_WORD_FILTER_ENABLE))
@@ -359,9 +354,11 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
     switch (type)
     {
         case CHAT_MSG_SAY:
-        case CHAT_MSG_EMOTE:
-        case CHAT_MSG_YELL:
         {
+            // Prevent cheating
+            if (!sender->IsAlive())
+                return;
+
             if (sender->GetLevel() < sWorld->getIntConfig(CONFIG_CHAT_SAY_LEVEL_REQ))
             {
                 SendNotification(GetTrinityString(LANG_SAY_REQ), sWorld->getIntConfig(CONFIG_CHAT_SAY_LEVEL_REQ));
@@ -371,14 +368,45 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
             if (!sHookMgr->OnChat(sender, type, lang, msg))
                 return;
 #endif
+            sender->Say(msg, Language(lang));
+            break;
+        }            
+        case CHAT_MSG_EMOTE:
+        {
+            // Prevent cheating
+            if (!sender->IsAlive())
+                return;
 
-            if (type == CHAT_MSG_SAY)
-                sender->Say(msg, lang);
-            else if (type == CHAT_MSG_EMOTE)
-                sender->TextEmote(msg);
-            else if (type == CHAT_MSG_YELL)
-                sender->Yell(msg, lang);
-        } break;
+            if (sender->GetLevel() < sWorld->getIntConfig(CONFIG_CHAT_EMOTE_LEVEL_REQ))
+            {
+                SendNotification(GetTrinityString(LANG_SAY_REQ), sWorld->getIntConfig(CONFIG_CHAT_EMOTE_LEVEL_REQ));
+                return;
+            }
+#ifdef ELUNA
+            if (!sHookMgr->OnChat(sender, type, lang, msg))
+                return;
+#endif
+            sender->TextEmote(msg);
+            break;
+        }            
+        case CHAT_MSG_YELL:
+        {
+            // Prevent cheating
+            if (!sender->IsAlive())
+                return;
+
+            if (sender->GetLevel() < sWorld->getIntConfig(CONFIG_CHAT_YELL_LEVEL_REQ))
+            {
+                SendNotification(GetTrinityString(LANG_SAY_REQ), sWorld->getIntConfig(CONFIG_CHAT_YELL_LEVEL_REQ));
+                return;
+            }
+#ifdef ELUNA
+            if (!sHookMgr->OnChat(sender, type, lang, msg))
+                return;
+#endif
+            sender->Yell(msg, Language(lang));
+            break;
+        }
         case CHAT_MSG_WHISPER:
         {
             if (!normalizePlayerName(to))
@@ -387,7 +415,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
                 break;
             }
 
-            Player* receiver = sObjectAccessor->FindPlayerByName(to);
+            Player* receiver = ObjectAccessor::FindPlayerByName(to);
             if (!receiver || (!receiver->isAcceptWhispers() && GetSecurity() == SEC_PLAYER && !receiver->IsInWhisperWhiteList(sender->GetGUID())))
             {
                 SendPlayerNotFoundNotice(to);
@@ -418,7 +446,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
                 (GetSecurity() > SEC_PLAYER && !sender->isAcceptWhispers() && !sender->IsInWhisperWhiteList(receiver->GetGUID())))
                 sender->AddWhisperWhiteList(receiver->GetGUID());
 
-            GetPlayer()->Whisper(msg, lang, receiver->GetGUID());
+            GetPlayer()->Whisper(msg, Language(lang), receiver);
         } break;
         case CHAT_MSG_PARTY:
         case CHAT_MSG_PARTY_LEADER:
@@ -443,7 +471,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
 
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, type, Language(lang), _player, NULL, msg);
-            group->BroadcastChat(&data, GetPlayer()->GetGUIDLow(), group->GetMemberGroup(GetPlayer()->GetGUID()));
+            group->BroadcastChat(&data, GetPlayer()->GetGUID(), group->GetMemberGroup(GetPlayer()->GetGUID()));
         } break;
         case CHAT_MSG_GUILD:
         {
@@ -499,7 +527,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
 
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, type, Language(lang), _player, NULL, msg);
-            group->BroadcastChat(&data, GetPlayer()->GetGUIDLow());
+            group->BroadcastChat(&data, GetPlayer()->GetGUID());
             break;
         }
         case CHAT_MSG_RAID_WARNING:
@@ -609,7 +637,7 @@ void WorldSession::HandleMessagechatOpcode(WorldPacket& recvData)
 
             WorldPacket data;
             ChatHandler::BuildChatPacket(data, type, Language(lang), _player, NULL, msg);
-            group->BroadcastChat(&data, GetPlayer()->GetGUIDLow());
+            group->BroadcastChat(&data, GetPlayer()->GetGUID());
             break;
         }
         default:
@@ -737,7 +765,7 @@ void WorldSession::HandleAddonMessagechatOpcode(WorldPacket& recvData)
         {
             if (!normalizePlayerName(targetName))
                 break;
-            Player* receiver = sObjectAccessor->FindPlayerByName(targetName.c_str());
+            Player* receiver = ObjectAccessor::FindPlayerByName(targetName.c_str());
             if (!receiver)
                 break;
 
@@ -791,7 +819,7 @@ namespace Trinity
             void operator()(WorldPacket& data, LocaleConstant loc_idx)
             {
                 ObjectGuid PlayerGuid = i_player.GetGUID();
-                ObjectGuid TargetGuid = i_target ? i_target->GetGUID() : 0;
+                ObjectGuid TargetGuid = i_target ? i_target->GetGUID() : ObjectGuid::Empty;
 
                 data.Initialize(SMSG_TEXT_EMOTE, 2 * (8 + 1) + 4 + 4);
 

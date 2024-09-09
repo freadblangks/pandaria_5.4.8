@@ -70,7 +70,7 @@ class npc_raz_the_crazed : public CreatureScript
                 switch (actionId)
                 {
                     case ACTION_RAZ_BREAK_PRISON:
-                        me->SetAnimationTier(UnitAnimationTier::Fly);
+                        me->SetAnimTier(AnimTier::Fly);
                         me->OverrideInhabitType(INHABIT_AIR);
                         me->UpdateMovementFlags();
                         nonCombatEvents.ScheduleEvent(EVENT_BREAK_PRISON, 2.5 * IN_MILLISECONDS);
@@ -86,7 +86,7 @@ class npc_raz_the_crazed : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_CLEAVE, 0.5 * IN_MILLISECONDS);
             }
@@ -99,7 +99,7 @@ class npc_raz_the_crazed : public CreatureScript
                         me->SetHomePosition(*me);
                         me->SetFaction(1665);
                         Talk(TALK_INTRO);
-                        me->SetAnimationTier(UnitAnimationTier::Ground);
+                        me->SetAnimTier(AnimTier::Ground);
                         me->OverrideInhabitType(INHABIT_GROUND);
                         me->UpdateMovementFlags();
                         nonCombatEvents.ScheduleEvent(EVENT_MOVE, 2 * IN_MILLISECONDS);
@@ -257,7 +257,7 @@ class AreaTrigger_at_second_bridge_blackrock_caverns : public AreaTriggerScript
         bool OnTrigger(Player* player, AreaTriggerEntry const* trigger) override
         {
             if (InstanceScript* instance = player->GetInstanceScript())
-                if (Creature* Raz = ObjectAccessor::GetCreature(*player, instance->GetData64(NPC_RAZ_THE_CRAZED)))
+                if (Creature* Raz = ObjectAccessor::GetCreature(*player, instance->GetGuidData(NPC_RAZ_THE_CRAZED)))
                     Raz->AI()->DoAction(ACTION_RAZ_NEXT_BRIDGE);
 
             return false;

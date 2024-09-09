@@ -138,7 +138,7 @@ void WorldSession::HandleGMTicketUpdateOpcode(WorldPacket& recvData)
     GMTicketResponse response = GMTICKET_RESPONSE_UPDATE_ERROR;
     if (GmTicket* ticket = sTicketMgr->GetGmTicketByPlayerGuid(GetPlayer()->GetGUID()))
     {
-        SQLTransaction trans = SQLTransaction(NULL);
+        CharacterDatabaseTransaction trans = CharacterDatabaseTransaction(nullptr);
         ticket->SetMessage(message);
         ticket->SaveToDB(trans);
 
@@ -147,7 +147,7 @@ void WorldSession::HandleGMTicketUpdateOpcode(WorldPacket& recvData)
         response = GMTICKET_RESPONSE_UPDATE_SUCCESS;
     }
 
-    sTicketMgr->SendGmTicketUpdate(SMSG_GM_TICKET_UPDATE_TEXT, response, GetPlayer());
+    // sTicketMgr->SendGmTicketUpdate(SMSG_GM_TICKET_UPDATE_TEXT, response, GetPlayer()); opcode not vaild
 }
 
 void WorldSession::HandleGMTicketDeleteOpcode(WorldPacket & /*recvData*/)
@@ -252,8 +252,8 @@ void WorldSession::HandleReportLag(WorldPacket& recvData)
     recvData >> y;
     recvData >> z;
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_LAG_REPORT);
-    stmt->setUInt32(0, GUID_LOPART(GetPlayer()->GetGUID()));
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_LAG_REPORT);
+    stmt->setUInt32(0, GetPlayer()->GetGUID().GetCounter());
     stmt->setUInt8 (1, lagType);
     stmt->setUInt16(2, mapId);
     stmt->setFloat (3, x);
@@ -273,9 +273,9 @@ void WorldSession::HandleGMResponseResolve(WorldPacket& /*recvPacket*/)
         if (float(rand_chance()) < sWorld->getFloatConfig(CONFIG_CHANCE_OF_GM_SURVEY))
             getSurvey = 1;
 
-        WorldPacket data(SMSG_GM_RESPONSE_STATUS_UPDATE, 4);
-        data << uint8(getSurvey);
-        SendPacket(&data);
+        // WorldPacket data(SMSG_GM_RESPONSE_STATUS_UPDATE, 4); // opcode not vaild
+        // data << uint8(getSurvey);
+        // SendPacket(&data);
 
         WorldPacket data2(SMSG_GM_TICKET_UPDATE, 4);
         data2 << uint32(GMTICKET_RESPONSE_TICKET_DELETED);

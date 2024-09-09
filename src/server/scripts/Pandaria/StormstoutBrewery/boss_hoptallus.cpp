@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -97,9 +97,9 @@ static const Position nibblerWaypints[] =
 static const uint32 hoplings[5] = { 59461, 56631, 59459, 59458,  59460 };
 static const uint32 hoppers[2] = { 56718, 59426 };
 
-void InitPathForHopplings(uint64 hoppGUID)
+void InitPathForHopplings(Creature* me, ObjectGuid hoppGUID)
 {
-    Unit* hoppler = ObjectAccessor::FindUnit(hoppGUID);
+    Unit* hoppler = ObjectAccessor::GetUnit(*me, hoppGUID);
     if (!hoppler)
         return;
 
@@ -144,8 +144,8 @@ class npc_nibbler : public CreatureScript
 
             uint32 waypoint;
             uint32 pandaPoint;
-            std::vector<uint64> pandaGuidsVector;
-            std::vector<uint64>::const_iterator pandaItr;
+            std::vector<ObjectGuid> pandaGuidsVector;
+            std::vector<ObjectGuid>::const_iterator pandaItr;
             EventMap events;
             InstanceScript* instance;
 
@@ -293,11 +293,12 @@ class boss_hoptallus : public CreatureScript
 
         enum Talks
         {
-            TALK_AGGRO,
-            TALK_FURLWIND,
-            TALK_CARROT_BREATH,
-            TALK_DEATH,
-            TALK_SCREECH
+            TALK_AGGRO              = 0, // Oh yeah!
+            TALK_FURLWIND           = 1, // Gonna spins around!
+            TALK_CARROT_BREATH      = 2, // Urp... eats too many carrots...
+            TALK_DEATH              = 3, // You have... turnip... for a head...
+            TALK_SCREECH            = 4, // Hoptallus lets out a loud screech! The virmen are coming!
+            TALK_SLAY               = 5  // You die!
         };
 
         struct boss_hoptallusAI : public BossAI
@@ -385,8 +386,7 @@ class boss_hoptallus : public CreatureScript
                 {
                     creature->AddAura(SPELL_HOPPER_ANIM_REPLACEMENT, creature);
 
-                    Position pos;
-                    me->GetRandomNearPosition(pos, 10.f);
+                    Position pos = me->GetRandomNearPosition(10.f);
                     creature->GetMotionMaster()->MoveJump(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), 15.f, 15.f, EVENT_JUMP);
 
                     if (creature->AI() && instance->GetBossState(DATA_HOPTALLUS) == SPECIAL) // not send area in combat while pre event
@@ -415,8 +415,7 @@ class boss_hoptallus : public CreatureScript
 
                 if (Creature* creature = me->SummonCreature(hoppers[urand(0, 1)], hopperSpawns[n], TEMPSUMMON_CORPSE_TIMED_DESPAWN, urand(4000, 8000)))
                 {
-                    Position pos;
-                    me->GetRandomNearPosition(pos, 10.f);
+                    Position pos = me->GetRandomNearPosition(10.f);
                     creature->GetMotionMaster()->MoveJump(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), 10.f, 10.f, EVENT_JUMP);
 
                     if (creature->AI() && instance->GetBossState(DATA_HOPTALLUS) == SPECIAL)
@@ -438,6 +437,11 @@ class boss_hoptallus : public CreatureScript
                 me->GetMotionMaster()->MovePoint(194, hoptallusHopPos);
             }
 
+            void KilledUnit(Unit* victim) override
+            {
+                Talk(TALK_SLAY);
+            }
+
             void JustDied(Unit* killer) override
             {
                 _JustDied();
@@ -448,9 +452,9 @@ class boss_hoptallus : public CreatureScript
                     nibbler->AI()->DoAction(0);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
 
                 Talk(TALK_AGGRO);
 
@@ -557,7 +561,7 @@ class npc_hammer_bopper : public CreatureScript
                 me->RemoveAurasDueToSpell(SPELL_HAMMER_COSMETIC_1);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 me->GetMotionMaster()->Clear();
                 events.Reset();
@@ -575,7 +579,7 @@ class npc_hammer_bopper : public CreatureScript
                     case EVENT_JUMP:
                         if (instance && (instance->GetBossState(DATA_HOPTALLUS) != SPECIAL || instance->GetBossState(DATA_HOPTALLUS) != IN_PROGRESS))
                         {
-                            InitPathForHopplings(me->GetGUID());
+                            InitPathForHopplings(me, me->GetGUID());
                             events.ScheduleEvent(EVENT_MOVE, me->GetSplineDuration());
                         }
                         break;
@@ -657,7 +661,7 @@ class npc_explosive_hopper : public CreatureScript
                 cosmeticEvents.ScheduleEvent(EVENT_CHECK_POS, 5 * IN_MILLISECONDS);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 me->GetMotionMaster()->Clear();
                 cosmeticEvents.Reset();
@@ -677,7 +681,7 @@ class npc_explosive_hopper : public CreatureScript
                     case EVENT_JUMP:
                         if (instance && (instance->GetBossState(DATA_HOPTALLUS) != SPECIAL || instance->GetBossState(DATA_HOPTALLUS) != IN_PROGRESS))
                         {
-                            InitPathForHopplings(me->GetGUID());
+                            InitPathForHopplings(me, me->GetGUID());
                             cosmeticEvents.ScheduleEvent(EVENT_MOVE, me->GetSplineDuration());
                         }
                         break;
@@ -819,9 +823,9 @@ class npc_carrot_breath_stalker : public CreatureScript
                 me->SetDisableGravity(true);
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
 
-                if (Creature* hoppy = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_HOPTALLUS)))
+                if (Creature* hoppy = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_HOPTALLUS)))
                 {
-                    hoppy->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, me->GetGUID());
+                    hoppy->SetGuidValue(UNIT_FIELD_CHANNEL_OBJECT, me->GetGUID());
                     hoppy->SetTarget(me->GetGUID());
                 }
             }
@@ -851,9 +855,9 @@ class npc_carrot_breath_stalker : public CreatureScript
 
                             arcPoint++;
 
-                            if (Creature* hoppy = ObjectAccessor::GetCreature(*me, me->GetInstanceScript()->GetData64(DATA_HOPTALLUS)))
+                            if (Creature* hoppy = ObjectAccessor::GetCreature(*me, me->GetInstanceScript()->GetGuidData(DATA_HOPTALLUS)))
                             {
-                                hoppy->SetUInt64Value(UNIT_FIELD_CHANNEL_OBJECT, me->GetGUID());
+                                hoppy->SetGuidValue(UNIT_FIELD_CHANNEL_OBJECT, me->GetGUID());
                                 hoppy->SetTarget(me->GetGUID());
                                 hoppy->UpdateOrientation(hoppy->GetAngle(me));
                             }
@@ -889,7 +893,7 @@ class npc_sb_hopling : public CreatureScript
                 events.ScheduleEvent(EVENT_CHECK_POS, 5 * IN_MILLISECONDS);
             }
 
-            void EnterCombat(Unit* /*who*/) override 
+            void JustEngagedWith(Unit* /*who*/) override 
             {
                 me->GetMotionMaster()->Clear();
                 events.Reset();
@@ -897,7 +901,7 @@ class npc_sb_hopling : public CreatureScript
 
             void Move()
             {
-                InitPathForHopplings(me->GetGUID());
+                InitPathForHopplings(me, me->GetGUID());
                 events.ScheduleEvent(EVENT_MOVE, me->GetSplineDuration());
             }
 

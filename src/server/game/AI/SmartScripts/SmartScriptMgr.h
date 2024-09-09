@@ -27,6 +27,7 @@
 
 //#include "SmartScript.h"
 //#include "SmartAI.h"
+typedef uint32 SAIBool;
 
 struct WayPoint
 {
@@ -222,6 +223,7 @@ struct SmartEvent
             uint32 maxDist;
             uint32 cooldownMin;
             uint32 cooldownMax;
+            SAIBool playerOnly;
         } los;
 
         struct
@@ -534,8 +536,8 @@ enum SMART_ACTION
     SMART_ACTION_CALL_RANDOM_TIMED_ACTIONLIST       = 87,     // script9 ids 1-9
     SMART_ACTION_CALL_RANDOM_RANGE_TIMED_ACTIONLIST = 88,     // script9 id min, max
     SMART_ACTION_RANDOM_MOVE                        = 89,     // maxDist
-    SMART_ACTION_SET_UNIT_FIELD_ANIM_TIER           = 90,     // bytes, target
-    SMART_ACTION_REMOVE_UNIT_FIELD_ANIM_TIER        = 91,     // bytes, target
+    SMART_ACTION_SET_UNIT_FIELD_BYTES_1           = 90,     // bytes, target
+    SMART_ACTION_REMOVE_UNIT_FIELD_BYTES_1        = 91,     // bytes, target
     SMART_ACTION_INTERRUPT_SPELL                    = 92,
     SMART_ACTION_SEND_GO_CUSTOM_ANIM                = 93,     // anim id
     SMART_ACTION_SET_DYNAMIC_FLAG                   = 94,     // Flags
@@ -566,7 +568,7 @@ enum SMART_ACTION
     SMART_ACTION_END                                = 129,
 
     // project
-    SMART_ACTION_project                           = 200,
+    SMART_ACTION_project                            = 200,
     SMART_ACTION_PLAY_SCENE_ID                      = 201,    // sceneId, apply
     SMART_ACTION_PLAY_SCENE_PACKAGE                 = 202,    // scenePackageId, apply
     SMART_ACTION_COMBAT_STOP                        = 203,
@@ -574,7 +576,8 @@ enum SMART_ACTION
     SMART_ACTION_STOP_FOLLOW                        = 205,
     SMART_ACTION_SPELL_VISUAL_KIT                   = 206,
     SMART_ACTION_CAST_RANDOM_SPELL                  = 207,
-    SMART_ACTION_END_project                       = 208,
+    SMART_ACTION_SET_INGAME_PHASE_ID                = 208,    // phaseid, apply
+    SMART_ACTION_END_project                        = 209
 };
 
 struct SmartAction
@@ -1110,6 +1113,12 @@ struct SmartAction
             uint32 flags;
         } castRandomSpell;
 
+        struct
+        {
+            uint32 id;
+            uint32 apply;
+        } ingamePhaseId;
+
         //! Note for any new future actions
         //! All parameters must have type uint32
 
@@ -1474,28 +1483,25 @@ typedef std::unordered_map<uint32, WayPoint*> WPPath;
 
 typedef std::list<WorldObject*> ObjectList;
 typedef std::unordered_map<uint32, ObjectList*> ObjectListMap;
-typedef std::list<uint64> GuidList;
 typedef std::unordered_map<uint32, GuidList> GuidListMap;
 
 class SmartWaypointMgr
 {
-    friend class ACE_Singleton<SmartWaypointMgr, ACE_Null_Mutex>;
-    SmartWaypointMgr() { }
     public:
-        ~SmartWaypointMgr();
+        static SmartWaypointMgr* instance();    
 
         void LoadFromDB();
 
-        WPPath* GetPath(uint32 id)
-        {
-            if (waypoint_map.find(id) != waypoint_map.end())
-                return waypoint_map[id];
-            else return 0;
-        }
+        WPPath* GetPath(uint32 id);
 
     private:
+        SmartWaypointMgr() { }
+        ~SmartWaypointMgr() { }
+
         std::unordered_map<uint32, WPPath*> waypoint_map;
 };
+
+#define sSmartWaypointMgr SmartWaypointMgr::instance()
 
 // all events for a single entry
 typedef std::vector<SmartScriptHolder> SmartAIEventList;
@@ -1505,11 +1511,11 @@ typedef std::unordered_map<int32, SmartAIEventList> SmartAIEventMap;
 
 class SmartAIMgr
 {
-    friend class ACE_Singleton<SmartAIMgr, ACE_Null_Mutex>;
-    SmartAIMgr(){ }
+    private:
+        SmartAIMgr() { }
+        ~SmartAIMgr() { }
     public:
-        ~SmartAIMgr(){ }
-
+        static SmartAIMgr* instance();
         void LoadSmartAIFromDB();
 
         SmartAIEventList GetScript(int32 entry, SmartScriptType type)
@@ -1686,6 +1692,5 @@ class SmartAIMgr
         std::unordered_map<uint32, SpellEffectPair> _killCreditsSpellCache;
 };
 
-#define sSmartScriptMgr ACE_Singleton<SmartAIMgr, ACE_Null_Mutex>::instance()
-#define sSmartWaypointMgr ACE_Singleton<SmartWaypointMgr, ACE_Null_Mutex>::instance()
+#define sSmartScriptMgr SmartAIMgr::instance()
 #endif

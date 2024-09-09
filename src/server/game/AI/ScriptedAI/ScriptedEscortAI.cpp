@@ -34,12 +34,11 @@ enum Points
 };
 
 npc_escortAI::npc_escortAI(Creature* creature) : ScriptedAI(creature),
-    m_uiPlayerGUID(0),
     m_uiWPWaitTimer(2500),
     m_uiPlayerCheckTimer(1000),
     m_uiEscortState(STATE_ESCORT_NONE),
     MaxPlayerDistance(DEFAULT_MAX_PLAYER_DISTANCE),
-    m_pQuestForEscort(NULL),
+    m_pQuestForEscort(nullptr),
     m_bIsActiveAttacker(true),
     m_bIsRunning(false),
     m_bCanInstantRespawn(false),
@@ -157,7 +156,7 @@ void npc_escortAI::JustDied(Unit* /*killer*/)
     }
 }
 
-void npc_escortAI::JustRespawned()
+void npc_escortAI::JustAppeared()
 {
     m_uiEscortState = STATE_ESCORT_NONE;
 
@@ -167,7 +166,7 @@ void npc_escortAI::JustRespawned()
     //add a small delay before going to first waypoint, normal in near all cases
     m_uiWPWaitTimer = 2500;
 
-    if (me->GetFaction() != me->GetCreatureTemplate()->faction_A)
+    if (me->GetFaction() != me->GetCreatureTemplate()->faction)
         me->RestoreFaction();
 
     Reset();
@@ -438,7 +437,7 @@ void npc_escortAI::SetRun(bool on)
 }
 
 /// @todo get rid of this many variables passed in function.
-void npc_escortAI::Start(bool isActiveAttacker /* = true*/, bool run /* = false */, uint64 playerGUID /* = 0 */, Quest const* quest /* = NULL */, bool instantRespawn /* = false */, bool canLoopPath /* = false */, bool resetWaypoints /* = true */)
+void npc_escortAI::Start(bool isActiveAttacker /* = true*/, bool run /* = false */, ObjectGuid playerGUID /* = 0 */, Quest const* quest /* = NULL */, bool instantRespawn /* = false */, bool canLoopPath /* = false */, bool resetWaypoints /* = true */)
 {
     if (me->GetVictim())
     {
@@ -494,7 +493,7 @@ void npc_escortAI::Start(bool isActiveAttacker /* = true*/, bool run /* = false 
         me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_NPC);
     }
 
-    TC_LOG_DEBUG("scripts", "EscortAI started with " UI64FMTD " waypoints. ActiveAttacker = %d, Run = %d, PlayerGUID = " UI64FMTD "", uint64(WaypointList.size()), m_bIsActiveAttacker, m_bIsRunning, m_uiPlayerGUID);
+    TC_LOG_DEBUG("scripts", "EscortAI started with " UI64FMTD " waypoints. ActiveAttacker = %d, Run = %d, PlayerGUID = " UI64FMTD "", uint64(WaypointList.size()), m_bIsActiveAttacker, m_bIsRunning, m_uiPlayerGUID.GetRawValue());
 
     CurrentWP = WaypointList.begin();
 
@@ -516,6 +515,11 @@ void npc_escortAI::SetEscortPaused(bool on)
         AddEscortState(STATE_ESCORT_PAUSED);
     else
         RemoveEscortState(STATE_ESCORT_PAUSED);
+}
+
+Player* npc_escortAI::GetPlayerForEscort() 
+{ 
+    return ObjectAccessor::GetPlayer(*me, m_uiPlayerGUID); 
 }
 
 bool npc_escortAI::SetNextWaypoint(uint32 pointId, float x, float y, float z, float orientation)

@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -57,7 +57,7 @@ class npc_00x09hl : public CreatureScript
 public:
     npc_00x09hl() : CreatureScript("npc_00x09hl") { }
 
-    bool OnQuestAccept(Player* player, Creature* creature, const Quest* quest)
+    bool OnQuestAccept(Player* player, Creature* creature, const Quest* quest) override
     {
         if (quest->GetQuestId() == QUEST_RESQUE_OOX_09)
         {
@@ -87,7 +87,7 @@ public:
 
         void Reset() override { }
 
-        void WaypointReached(uint32 waypointId)
+        void WaypointReached(uint32 waypointId) override
         {
             switch (waypointId)
             {
@@ -105,7 +105,7 @@ public:
             }
         }
 
-        void WaypointStart(uint32 uiPointId)
+        void WaypointStart(uint32 uiPointId) override
         {
             switch (uiPointId)
             {
@@ -113,8 +113,7 @@ public:
                     for (uint8 i = 0; i < 3; ++i)
                     {
                         const Position src = {147.927444f, -3851.513428f, 130.893f, 0};
-                        Position dst;
-                        me->GetRandomPoint(src, 7.0f, dst);
+                        Position dst = me->GetRandomPoint(src, 7.0f);
                         DoSummon(NPC_MARAUDING_OWL, dst, 25000, TEMPSUMMON_CORPSE_TIMED_DESPAWN);
                     }
                     break;
@@ -122,15 +121,14 @@ public:
                     for (uint8 i = 0; i < 3; ++i)
                     {
                         const Position src = {-141.151581f, -4291.213867f, 120.130f, 0};
-                        Position dst;
-                        me->GetRandomPoint(src, 7.0f, dst);
+                        Position dst = me->GetRandomPoint(src, 7.0f);
                         me->SummonCreature(NPC_VILE_AMBUSHER, dst, TEMPSUMMON_CORPSE_TIMED_DESPAWN, 25000);
                     }
                     break;
             }
         }
 
-        void EnterCombat(Unit* who)
+        void JustEngagedWith(Unit* who) override
         {
             if (who->GetEntry() == NPC_MARAUDING_OWL || who->GetEntry() == NPC_VILE_AMBUSHER)
                 return;

@@ -106,14 +106,14 @@ class npc_enslaved_soul : public CreatureScript
         {
             npc_enslaved_soulAI(Creature* creature) : ScriptedAI(creature) { }
 
-            uint64 ReliquaryGUID;
+            ObjectGuid ReliquaryGUID;
 
             void Reset() override
             {
-                ReliquaryGUID = 0;
+                ReliquaryGUID = ObjectGuid::Empty;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoCast(me, ENSLAVED_SOUL_PASSIVE, true);
                 DoZoneInCombat();
@@ -138,12 +138,12 @@ class boss_reliquary_of_souls : public CreatureScript
             boss_reliquary_of_soulsAI(Creature* creature) : ScriptedAI(creature)
             {
                 instance = creature->GetInstanceScript();
-                EssenceGUID = 0;
+                EssenceGUID = ObjectGuid::Empty;
             }
 
             TaskScheduler scheduler;
             InstanceScript* instance;
-            uint64 EssenceGUID;
+            ObjectGuid EssenceGUID;
             uint32 Phase;
             uint32 Counter;
             uint32 Timer;
@@ -160,7 +160,7 @@ class boss_reliquary_of_souls : public CreatureScript
                     if (Creature* Essence = Unit::GetCreature(*me, EssenceGUID))
                         Essence->DespawnOrUnsummon();
 
-                    EssenceGUID = 0;
+                    EssenceGUID = ObjectGuid::Empty;
                 }
 
                 Phase = 0;
@@ -189,7 +189,7 @@ class boss_reliquary_of_souls : public CreatureScript
                     DoStartNoMovement(who);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (!instance || !instance->CheckRequiredBosses(DATA_RELIQUARY_OF_SOULS_EVENT, who->ToPlayer()))
                 {
@@ -267,7 +267,7 @@ class boss_reliquary_of_souls : public CreatureScript
 
             void UpdateAI(uint32 diff) override
             {
-                me->SetTarget(0);
+                me->SetTarget(ObjectGuid::Empty);
 
                 if (!Phase)
                     return;
@@ -368,7 +368,7 @@ class boss_reliquary_of_souls : public CreatureScript
                                 Essence->DespawnOrUnsummon();
                             }
                             me->HandleEmoteStateCommand(EMOTE_ONESHOT_NONE);
-                            EssenceGUID = 0;
+                            EssenceGUID = ObjectGuid::Empty;
                             SoulCount = 0;
                             SoulDeathCount = 0;
                             Timer = 3000;
@@ -422,7 +422,7 @@ class boss_essence_of_suffering : public CreatureScript
         {
             boss_essence_of_sufferingAI(Creature* creature) : ScriptedAI(creature) { }
 
-            uint64 StatAuraGUID;
+            ObjectGuid StatAuraGUID;
 
             uint32 AggroYellTimer;
             uint32 FixateTimer;
@@ -432,7 +432,7 @@ class boss_essence_of_suffering : public CreatureScript
 
             void Reset() override
             {
-                StatAuraGUID = 0;
+                StatAuraGUID = ObjectGuid::Empty;
 
                 AggroYellTimer = 5000;
                 FixateTimer = 8000;
@@ -453,7 +453,7 @@ class boss_essence_of_suffering : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (!me->HasFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE))
                     {
@@ -586,7 +586,7 @@ class boss_essence_of_desire : public CreatureScript
                                 me->InterruptSpell(CURRENT_GENERIC_SPELL, false);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(DESI_SAY_FREED);
                 DoZoneInCombat();
@@ -646,7 +646,7 @@ class boss_essence_of_anger : public CreatureScript
         {
             boss_essence_of_angerAI(Creature* creature) : ScriptedAI(creature) { }
 
-            uint64 AggroTargetGUID;
+            ObjectGuid AggroTargetGUID;
 
             uint32 CheckTankTimer;
             uint32 SoulScreamTimer;
@@ -658,7 +658,7 @@ class boss_essence_of_anger : public CreatureScript
 
             void Reset() override
             {
-                AggroTargetGUID = 0;
+                AggroTargetGUID = ObjectGuid::Empty;
 
                 CheckTankTimer = 5000;
                 SoulScreamTimer = 10000;
@@ -669,7 +669,7 @@ class boss_essence_of_anger : public CreatureScript
                 CheckedAggro = false;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(ANGER_SAY_FREED);
 

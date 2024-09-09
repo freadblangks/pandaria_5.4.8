@@ -5,11 +5,13 @@
 */
 
 #include "LuaEngine.h"
+#include "LuaFunctions.h"
 #include "Config.h"
-// #include "HookMgr.h"
+#include "HookMgr.h"
 
 #if PLATFORM == PLATFORM_UNIX
 #include <dirent.h>
+#include <sys/stat.h>
 #endif
 
 template<typename T> const char* GetTName() { return NULL; }
@@ -32,9 +34,6 @@ template<> const char* GetTName<Map>() { return "Map"; }
 template<> const char* GetTName<Corpse>() { return "Corpse"; }
 template<> const char* GetTName<Weather>() { return "Weather"; }
 template<> const char* GetTName<AuctionHouseObject>() { return "AuctionHouse"; }
-
-extern void RegisterFunctions(lua_State* L);
-extern void AddElunaScripts();
 
 void StartEluna(bool restart)
 {
@@ -137,32 +136,33 @@ void StartEluna(bool restart)
     {
         //! Iterate over every supported source type (creature and gameobject)
         //! Not entirely sure how this will affect units in non-loaded grids.
+        sMapMgr->DoForAllMaps([](Map* map)
         {
-            //HashMapHolder<Creature>::ReadGuard g(HashMapHolder<Creature>::GetLock());
-            HashMapHolder<Creature>::MapType& m = HashMapHolder<Creature>::GetContainer();
-            for (HashMapHolder<Creature>::MapType::const_iterator itr = m.begin(); itr != m.end(); ++itr)
+            for (auto itr : map->GetCreatureBySpawnIdStore())
             {
-                if (itr->second->IsInWorld()) // must check?
-                     if(sEluna->CreatureEventBindings->GetBindMap(itr->second->GetEntry())) // update all AI or just Eluna?
-                        itr->second->AIM_Initialize();
+                if (itr.second->IsInWorld())
+                    if(sEluna->CreatureEventBindings->GetBindMap(itr.second->GetEntry())) // update all AI or just Eluna?
+                        itr.second->AIM_Initialize();
             }
-        }
 
-        {
-            //HashMapHolder<GameObject>::ReadGuard g(HashMapHolder<GameObject>::GetLock());
-            HashMapHolder<GameObject>::MapType& m = HashMapHolder<GameObject>::GetContainer();
-            for (HashMapHolder<GameObject>::MapType::const_iterator itr = m.begin(); itr != m.end(); ++itr)
+            for (auto itr : map->GetGameObjectBySpawnIdStore())
             {
-                if (itr->second->IsInWorld()) // must check?
-                     if(sEluna->GameObjectEventBindings->GetBindMap(itr->second->GetEntry())) // update all AI or just Eluna?
-                        itr->second->AIM_Initialize();
+                if (itr.second->IsInWorld())
+                    if(sEluna->GameObjectEventBindings->GetBindMap(itr.second->GetEntry())) // update all AI or just Eluna?
+                        itr.second->AIM_Initialize();
             }
-        }
+        });
     }
     
     
     TC_LOG_INFO("server.loading", "[Eluna]: Loaded %u Lua scripts..", count);
     TC_LOG_INFO("server.loading", "");
+}
+
+Eluna* Eluna::instance()
+{
+    static Eluna instance;
+    return &instance;
 }
 
 // Loads lua scripts from given directory

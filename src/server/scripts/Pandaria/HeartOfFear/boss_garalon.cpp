@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -142,7 +142,7 @@ class boss_garalon : public CreatureScript
                 : BossAI(creature, DATA_GARALON) { }
 
             bool damagedHeroic, castingCrush;
-            std::deque<uint64> legsToRestore;
+            std::deque<ObjectGuid> legsToRestore;
 
             void SummonAndAddLegs()
             {
@@ -178,7 +178,7 @@ class boss_garalon : public CreatureScript
                 scheduler
                     .Schedule(Seconds(8), [this](TaskContext context)
                     {
-                        uint32 targetGUID = 0;
+                        ObjectGuid targetGUID = ObjectGuid::Empty;
                         if (Unit* target = me->GetVictim())
                             targetGUID = target->GetGUID();
 
@@ -289,9 +289,9 @@ class boss_garalon : public CreatureScript
                 SummonBody();
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
-                if (!_EnterCombat())
+                if (!_JustEngagedWith())
                 {
                     // Okay, if you fucking want teleport ONLY ONE player, let's do it
                     who->NearTeleportTo(EncountersEntrance[0].GetPositionX(), EncountersEntrance[0].GetPositionY(), EncountersEntrance[0].GetPositionZ(), EncountersEntrance[0].GetOrientation());
@@ -396,7 +396,7 @@ class boss_garalon : public CreatureScript
                 }
             }
 
-            void DamageTaken(Unit*, uint32& damage)
+            void DamageTaken(Unit*, uint32& damage) override
             {
                 // Only for debug purposes
                 if (damage >= me->GetHealth())
@@ -407,7 +407,7 @@ class boss_garalon : public CreatureScript
                         if (body->GetHealth() > damage || !sharedDamage || sharedDamage->GetCaster() != me)
                         {
                             TC_LOG_ERROR("garalon", "Garalon: vehicle " UI64FMTD ", body " UI64FMTD ", health %u, damage %u, has aura %u, aura caster " UI64FMTD,
-                                me->GetGUID(), body->GetGUID(), body->GetHealth(), damage, sharedDamage ? 1 : 0, sharedDamage ? sharedDamage->GetCasterGUID() : uint64(0));
+                                me->GetGUID().GetRawValue(), body->GetGUID().GetRawValue(), body->GetHealth(), damage, sharedDamage ? 1 : 0, sharedDamage ? sharedDamage->GetCasterGUID().GetRawValue() : uint64(0));
                             if (Player* player = me->GetMap()->GetFirstPlayerInInstance())
                                 player->Kill(body);
                         }
@@ -529,7 +529,7 @@ class npc_garalon_body : public CreatureScript
                         if (garalon->GetHealth() > damage || !sharedDamage || sharedDamage->GetCaster() != garalon)
                         {
                             TC_LOG_ERROR("garalon", "Garalon body: vehicle " UI64FMTD ", body " UI64FMTD ", health %u, damage %u, has aura %u, aura caster " UI64FMTD,
-                                garalon->GetGUID(), me->GetGUID(), garalon->GetHealth(), damage, sharedDamage ? 1 : 0, sharedDamage ? sharedDamage->GetCasterGUID() : uint64(0));
+                                garalon->GetGUID().GetRawValue(), me->GetGUID().GetRawValue(), garalon->GetHealth(), damage, sharedDamage ? 1 : 0, sharedDamage ? sharedDamage->GetCasterGUID().GetRawValue() : uint64(0));
                             if (Player* player = me->GetMap()->GetFirstPlayerInInstance())
                                 player->Kill(garalon);
                         }
@@ -537,7 +537,7 @@ class npc_garalon_body : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (Creature* garalon = me->GetVehicleCreatureBase())
                     garalon->AI()->AttackStart(who);
@@ -563,7 +563,7 @@ class npc_garalon_leg : public CreatureScript
             void Reset() override
             {
                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_IMMUNE_TO_NPC | UNIT_FLAG_NOT_SELECTABLE);
-                me->SetDisplayId(me->GetCreatureTemplate()->Modelid4);
+                me->SetDisplayFromModel(3);
             }
 
             void DamageTaken(Unit* attacker, uint32& damage) override
@@ -849,7 +849,7 @@ class spell_garalon_pheromones_switch : public SpellScript
         GetCaster()->RemoveAurasDueToSpell(SPELL_PHEROMONES_AURA);
         if (InstanceScript* instance = GetCaster()->GetInstanceScript())
             if (!GetCaster()->GetMap()->IsHeroic())
-                if (Creature* garalon = GetCaster()->GetMap()->GetCreature(instance->GetData64((NPC_GARALON))))
+                if (Creature* garalon = GetCaster()->GetMap()->GetCreature(instance->GetGuidData((NPC_GARALON))))
                     garalon->AI()->DoAction(ACTION_PHEROMONES_JUMP_OR_PLAYERS_UNDERNEATH);
     }
 
@@ -876,7 +876,7 @@ class spell_garalon_pheromones_dummy : public AuraScript
         if (Unit* caster = GetOwner()->ToUnit())
             if (InstanceScript* instance = GetUnitOwner()->GetInstanceScript())
                 if (instance->GetBossState(DATA_GARALON) == IN_PROGRESS)
-                    if (Creature* garalon = ObjectAccessor::GetCreature(*caster, instance->GetData64(DATA_GARALON)))
+                    if (Creature* garalon = ObjectAccessor::GetCreature(*caster, instance->GetGuidData(DATA_GARALON)))
                         garalon->CastSpell(garalon, SPELL_PHER_INIT_CAST);
     }
 

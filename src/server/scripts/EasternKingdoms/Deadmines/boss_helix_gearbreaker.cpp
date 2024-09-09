@@ -19,7 +19,7 @@
 #include "deadmines.h"
 #include "Vehicle.h"
 
-// todo: реализовать прыжки хеликса, сделать получше бомбы
+// todo: пїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ, пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅпїЅпїЅ пїЅпїЅпїЅпїЅпїЅ
 
 enum ScriptTexts
 {
@@ -144,9 +144,9 @@ class boss_helix_gearbreaker : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
 
                 if (instance)
                     instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
@@ -180,7 +180,7 @@ class boss_helix_gearbreaker : public CreatureScript
 
                 Talk(SAY_DEATH);
 
-                if (Creature* Oaf = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_OAF)))
+                if (Creature* Oaf = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_OAF)))
                     me->Kill(Oaf);
             }
 
@@ -298,7 +298,7 @@ class npc_lumbering_oaf : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (instance)
                     instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
@@ -473,12 +473,12 @@ class npc_sticky_bomb : public CreatureScript
                 canBoom = false;
             }
      
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_ARMING_YELLOW, 1000);
             }
 
-            uint64 GetTarget()
+            ObjectGuid GetTarget()
             {
                 ThreatContainer::StorageType const& threatlist = me->getThreatManager().getThreatList();
 
@@ -487,7 +487,7 @@ class npc_sticky_bomb : public CreatureScript
                         if (target->GetTypeId() == TYPEID_PLAYER && me->GetExactDist2dSq(target) < 4 && !target->GetVehicle())
                             return target->GetGUID();
 
-                return 0;
+                return ObjectGuid::Empty;
             }
 
             void UpdateAI(uint32 diff) override
@@ -588,7 +588,7 @@ class npc_helix_crew : public CreatureScript
                 summons.Despawn(summon);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 events.ScheduleEvent(EVENT_STICKY_BOMB, 8000);
             }

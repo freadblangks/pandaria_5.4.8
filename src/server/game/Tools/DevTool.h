@@ -467,7 +467,7 @@ union DevToolSettings
             }
 
             Creature* creature = new Creature();
-            if (creature->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_UNIT), player->GetMap(), player->GetPhaseMask() == PHASEMASK_ANYWHERE ? PHASEMASK_NORMAL : player->GetPhaseMask(), ID, 0, 0, x, y, z, o))
+            if (creature->Create(player->GetMap()->GenerateLowGuid<HighGuid::Unit>(), player->GetMap(), player->GetPhaseMask() == PHASEMASK_ANYWHERE ? PHASEMASK_NORMAL : player->GetPhaseMask(), ID, 0, 0, x, y, z, o))
             {
                 player->GetMap()->AddToMap(creature);
                 if (SaveToDB)
@@ -562,7 +562,7 @@ union DevToolSettings
             }
 
             GameObject* go = new GameObject();
-            if (go->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_GAMEOBJECT), ID, player->GetMap(), player->GetPhaseMask() == PHASEMASK_ANYWHERE ? PHASEMASK_NORMAL : player->GetPhaseMask(), x, y, z, o, { Rotation[0], Rotation[1], Rotation[2], Rotation[3] }, 255, GO_STATE_READY))
+            if (go->Create(player->GetMap()->GenerateLowGuid<HighGuid::GameObject>(), ID, player->GetMap(), player->GetPhaseMask() == PHASEMASK_ANYWHERE ? PHASEMASK_NORMAL : player->GetPhaseMask(), x, y, z, o, { Rotation[0], Rotation[1], Rotation[2], Rotation[3] }, 255, GO_STATE_READY))
             {
                 player->GetMap()->AddToMap(go);
                 if (SaveToDB)
@@ -629,7 +629,7 @@ union DevToolSettings
         }
         bool Execute(Player* player, Unit* target, float x, float y, float z, float o)
         {
-            uint64 playerGUID = player->GetGUID();
+            ObjectGuid playerGUID = player->GetGUID();
             static std::set<uint64> continousGUIDs;
             std::set<uint64>* guids = &continousGUIDs;
 #ifdef ICORE_BUILD
@@ -654,7 +654,7 @@ union DevToolSettings
 
                 auto&& pointPath = path.GetPath();
                 if (!continuous)
-                    ChatHandler(player).PSendSysMessage("%s's %s to |cFFFFCCCC%.3f|rf, |cFFCCFFCC%.3f|rf, |cFFCCCCFF%.3f|rf: %s - Length: " SIZEFMTD " - Type: %u", target->GetName().c_str(), useStraightPath ? "StraightPath" : "SmoothPath", x, y, z, (result ? "|cFF00FF00true|r" : "|cFFFF0000false|r"), pointPath.size(), path.GetPathType());
+                    ChatHandler(player).PSendSysMessage("%s's %s to |cFFFFCCCC%.3f|rf, |cFFCCFFCC%.3f|rf, |cFFCCCCFF%.3f|rf: %s - Length: %lu - Type: %u", target->GetName().c_str(), useStraightPath ? "StraightPath" : "SmoothPath", x, y, z, (result ? "|cFF00FF00true|r" : "|cFFFF0000false|r"), pointPath.size(), path.GetPathType());
 
                 path.VisualizePath(continuous ? continuousInterval * 3 : 2500);
                 if (continuous && path.visualizePathWaypointGUIDs)

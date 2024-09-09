@@ -197,7 +197,7 @@ class boss_warlord_zonozz: public CreatureScript
                 bIntro = true;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (instance->GetBossState(DATA_MORCHOK) != DONE)
                 {
@@ -541,7 +541,7 @@ class npc_warlord_zonozz_void_of_the_unmaking : public CreatureScript
                                 {
                                     if (aur->GetStackAmount() >= 9)
                                         if (InstanceScript* instance = me->GetInstanceScript())
-                                            if (Creature* pZonozz = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_ZONOZZ)))
+                                            if (Creature* pZonozz = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_ZONOZZ)))
                                                 pZonozz->AI()->SetData(DATA_ACHIEVE, 1);
                                 }
                                 
@@ -664,7 +664,7 @@ class npc_warlord_zonozz_tentacle : public CreatureScript
                 events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 switch (me->GetEntry())
                 {

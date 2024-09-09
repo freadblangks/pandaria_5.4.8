@@ -108,17 +108,17 @@ struct npc_feelwood_ferli_drizzle : public ScriptedAI
     TaskScheduler scheduler;
     bool hasDance;
     bool canAchieve;
-    uint64 ownerGUID;
-    uint64 ferliGUID;
+    ObjectGuid ownerGUID;
+    ObjectGuid ferliGUID;
     uint32 delay;
 
     void IsSummonedBy(Unit* summoner) override
     {
-        me->ToTempSummon()->SetVisibleBySummonerOnly(true);
+        me->ToTempSummon()->SetPrivateObjectOwner(summoner->GetGUID());
         ownerGUID = summoner->GetGUID();
         hasDance   = false;
         canAchieve = false;
-        ferliGUID  = 0;
+        ferliGUID = ObjectGuid::Empty;
 
         // Ferli is controller
         if (me->GetEntry() == NPC_FERLI)

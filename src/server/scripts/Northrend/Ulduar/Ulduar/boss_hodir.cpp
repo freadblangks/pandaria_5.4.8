@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -221,7 +221,7 @@ class boss_hodir : public CreatureScript
                 Reset();
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 me->SetReactState(REACT_AGGRESSIVE);
 
@@ -237,7 +237,7 @@ class boss_hodir : public CreatureScript
                 if (summons.size() < FRIENDS_COUNT * 2u)
                     Reset();
 
-                _EnterCombat();
+                _JustEngagedWith();
                 me->SetReactState(REACT_AGGRESSIVE);
 
                 Talk(SAY_AGGRO);
@@ -539,10 +539,10 @@ class npc_flash_freeze : public CreatureScript
             npc_flash_freezeAI(Creature* creature) : ScriptedAI(creature), instance(me->GetInstanceScript())
             {
                 me->SetReactState(REACT_PASSIVE);
-                me->SetDisplayId(me->GetCreatureTemplate()->Modelid2);
+                me->SetDisplayFromModel(1);
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED | UNIT_FLAG_PACIFIED);
                 SetCombatMovement(false);
-                targetGUID = 0;
+                targetGUID = ObjectGuid::Empty;
                 checkDespawnTimer = 1 * IN_MILLISECONDS;
             }
 
@@ -573,13 +573,13 @@ class npc_flash_freeze : public CreatureScript
                 // Prevents to have Ice Block on other place than target is
                 me->NearTeleportTo(summoner->GetPositionX(), summoner->GetPositionY(), summoner->GetPositionZ(), summoner->GetOrientation());
                 if (summoner->GetTypeId() == TYPEID_PLAYER)
-                    if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetData64(BOSS_HODIR)))
+                    if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_HODIR)))
                         Hodir->AI()->DoAction(ACTION_CHEESE_THE_FREEZE);
             }
 
         private:
             InstanceScript* instance;
-            uint64 targetGUID;
+            ObjectGuid targetGUID;
             uint32 checkDespawnTimer;
         };
 
@@ -599,10 +599,10 @@ class npc_ice_block : public CreatureScript
             npc_ice_blockAI(Creature* creature) : ScriptedAI(creature), instance(me->GetInstanceScript())
             {
                 me->SetReactState(REACT_PASSIVE);
-                me->SetDisplayId(me->GetCreatureTemplate()->Modelid2);
+                me->SetDisplayFromModel(1);
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_STUNNED | UNIT_FLAG_PACIFIED);
                 SetCombatMovement(false);
-                targetGUID = 0;
+                targetGUID = ObjectGuid::Empty;
                 checkDespawnTimer = 1 * IN_MILLISECONDS;
             }
 
@@ -618,7 +618,7 @@ class npc_ice_block : public CreatureScript
                 // Prevents to have Ice Block on other place than target is
                 me->NearTeleportTo(summoner->GetPositionX(), summoner->GetPositionY(), summoner->GetPositionZ(), summoner->GetOrientation());
 
-                if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetData64(BOSS_HODIR)))
+                if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_HODIR)))
                     Hodir->AI()->JustSummoned(me);
             }
 
@@ -626,7 +626,7 @@ class npc_ice_block : public CreatureScript
             {
                 if (instance->GetBossState(BOSS_HODIR) == NOT_STARTED)
                 {
-                    if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetData64(BOSS_HODIR)))
+                    if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_HODIR)))
                     {
                         if (!Hodir->IsInCombat())
                         {
@@ -643,7 +643,7 @@ class npc_ice_block : public CreatureScript
                     {
                         Helper->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_DISABLE_MOVE | UNIT_FLAG_STUNNED | UNIT_FLAG_PACIFIED);
 
-                        if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetData64(BOSS_HODIR)))
+                        if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_HODIR)))
                             Helper->AI()->AttackStart(Hodir);
                     }
                 }
@@ -664,7 +664,7 @@ class npc_ice_block : public CreatureScript
 
         private:
             InstanceScript* instance;
-            uint64 targetGUID;
+            ObjectGuid targetGUID;
             uint32 checkDespawnTimer;
         };
 
@@ -683,7 +683,7 @@ class npc_icicle : public CreatureScript
         {
             npc_icicleAI(Creature* creature) : ScriptedAI(creature)
             {
-                me->SetDisplayId(me->GetCreatureTemplate()->Modelid1);
+                me->SetDisplayFromModel(0);
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_PACIFIED | UNIT_FLAG_NOT_SELECTABLE);
                 me->SetReactState(REACT_PASSIVE);
                 SetCombatMovement(false);
@@ -733,7 +733,7 @@ class npc_snowpacked_icicle : public CreatureScript
         {
             npc_snowpacked_icicleAI(Creature* creature) : ScriptedAI(creature)
             {
-                me->SetDisplayId(me->GetCreatureTemplate()->Modelid2);
+                me->SetDisplayFromModel(1);
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_NOT_SELECTABLE | UNIT_FLAG_PACIFIED);
                 me->SetReactState(REACT_PASSIVE);
                 SetCombatMovement(false);
@@ -826,7 +826,7 @@ class npc_hodir_priest : public CreatureScript
 
             void JustDied(Unit* /*killer*/) override
              {
-                if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetData64(BOSS_HODIR)))
+                if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_HODIR)))
                     Hodir->AI()->DoAction(ACTION_I_HAVE_THE_COOLEST_FRIENDS);
               }
 
@@ -898,7 +898,7 @@ class npc_hodir_shaman : public CreatureScript
 
             void JustDied(Unit* /*killer*/) override
              {
-                if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetData64(BOSS_HODIR)))
+                if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_HODIR)))
                     Hodir->AI()->DoAction(ACTION_I_HAVE_THE_COOLEST_FRIENDS);
               }
 
@@ -965,7 +965,7 @@ class npc_hodir_druid : public CreatureScript
 
             void JustDied(Unit* /*killer*/) override
              {
-                if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetData64(BOSS_HODIR)))
+                if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_HODIR)))
                     Hodir->AI()->DoAction(ACTION_I_HAVE_THE_COOLEST_FRIENDS);
               }
 
@@ -1043,7 +1043,7 @@ class npc_hodir_mage : public CreatureScript
 
             void JustDied(Unit* /*killer*/) override
              {
-                  if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetData64(BOSS_HODIR)))
+                  if (Creature* Hodir = ObjectAccessor::GetCreature(*me, instance->GetGuidData(BOSS_HODIR)))
                     Hodir->AI()->DoAction(ACTION_I_HAVE_THE_COOLEST_FRIENDS);
               }
 
@@ -1068,7 +1068,7 @@ class npc_toasty_fire : public CreatureScript
         {
             npc_toasty_fireAI(Creature* creature) : ScriptedAI(creature)
             {
-                me->SetDisplayId(me->GetCreatureTemplate()->Modelid2);
+                me->SetDisplayFromModel(1);
             }
 
             void Reset() override
@@ -1282,7 +1282,7 @@ class achievement_i_could_say_that_this_cache_was_rare : public AchievementCrite
             if (!instance)
                 return false;
 
-            if (Creature* Hodir = ObjectAccessor::GetCreature(*player, instance->GetData64(BOSS_HODIR)))
+            if (Creature* Hodir = ObjectAccessor::GetCreature(*player, instance->GetGuidData(BOSS_HODIR)))
                 if (Hodir->AI()->GetData(DATA_I_COULD_SAY_THAT_THIS_CACHE_WAS_RARE))
                     return true;
 

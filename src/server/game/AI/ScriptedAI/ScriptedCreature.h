@@ -31,7 +31,7 @@ class InstanceScript;
 class SummonList
 {
     public:
-    typedef std::list<uint64> StorageType;
+    typedef std::list<ObjectGuid> StorageType;
     typedef StorageType::iterator iterator;
     typedef StorageType::const_iterator const_iterator;
     typedef StorageType::size_type size_type;
@@ -82,7 +82,7 @@ class SummonList
         storage_.clear();
     }
 
-    uint64 front()
+    ObjectGuid front()
     {
         return storage_.front();
     }
@@ -111,7 +111,7 @@ class SummonList
     {
         // We need to use a copy of SummonList here, otherwise original SummonList would be modified
         StorageType listCopy = storage_;
-        Trinity::Containers::RandomResizeList<uint64, Predicate>(listCopy, predicate, max);
+        Trinity::Containers::RandomResizeList<ObjectGuid, Predicate>(listCopy, predicate, max);
         for (StorageType::iterator i = listCopy.begin(); i != listCopy.end();)
         {
             Creature* summon = Unit::GetCreature(*me, *i++);
@@ -132,21 +132,17 @@ class SummonList
 class EntryCheckPredicate
 {
     public:
-    EntryCheckPredicate(uint32 entry) : _entry(entry)
-    { }
-    bool operator()(uint64 guid)
-    {
-        return GUID_ENPART(guid) == _entry;
-    }
+        EntryCheckPredicate(uint32 entry) : _entry(entry) { }
+        bool operator()(ObjectGuid guid) { return guid.GetEntry() == _entry; }
 
     private:
-    uint32 _entry;
+        uint32 _entry;
 };
 
 class DummyEntryCheckPredicate
 {
     public:
-    bool operator()(uint64)
+    bool operator()(ObjectGuid)
     {
         return true;
     }
@@ -163,40 +159,8 @@ struct ScriptedAI : public CreatureAI
 
     void AttackStartNoMove(Unit* target);
 
-    // Called at any Damage from any attacker (before damage apply)
-    void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/)
-    { }
-
     //Called at World update tick
-    virtual void UpdateAI(uint32 diff);
-
-    //Called at creature death
-    void JustDied(Unit* /*killer*/)
-    { }
-
-    //Called at creature killing another unit
-    void KilledUnit(Unit* /*victim*/)
-    { }
-
-    // Called when the creature summon successfully other creature
-    void JustSummoned(Creature* /*summon*/)
-    { }
-
-    // Called when a summoned creature is despawned
-    void SummonedCreatureDespawn(Creature* /*summon*/)
-    { }
-
-    // Called when hit by a spell
-    void SpellHit(Unit* /*caster*/, SpellInfo const* /*spell*/)
-    { }
-
-    // Called when spell hits a target
-    void SpellHitTarget(Unit* /*target*/, SpellInfo const* /*spell*/)
-    { }
-
-    //Called at waypoint reached or PointMovement end
-    void MovementInform(uint32 /*type*/, uint32 /*id*/)
-    { }
+    virtual void UpdateAI(uint32 diff) override;
 
     // Called when AI is temporarily replaced or put back when possess is applied or removed
     void OnPossess(bool /*apply*/)
@@ -216,16 +180,8 @@ struct ScriptedAI : public CreatureAI
     //Pure virtual functions
     // *************
 
-    //Called at creature reset either by death or evade
-    void Reset()
-    { }
-
-    //Called at creature aggro either by MoveInLOS or Attack Start
-    void EnterCombat(Unit* /*victim*/)
-    { }
-
-    // Called before EnterCombat even before the creature is in combat.
-    void AttackStart(Unit* /*target*/);
+    // Called before JustEngagedWith even before the creature is in combat.
+    void AttackStart(Unit* /*target*/) override;
 
     // *************
     //AI Helper Functions
@@ -465,136 +421,111 @@ struct ScriptedAI : public CreatureAI
 class BossAI : public ScriptedAI
 {
     public:
-    BossAI(Creature* creature, uint32 bossId);
-    virtual ~BossAI()
-    { }
+        BossAI(Creature* creature, uint32 bossId);
+        virtual ~BossAI() { }
 
-    InstanceScript* const instance;
-    BossBoundaryMap const* GetBoundary() const
-    {
-        return _boundary;
-    }
+        InstanceScript* const instance;
 
-    void JustSummoned(Creature* summon);
-    void SummonedCreatureDespawn(Creature* summon);
-
-    virtual void UpdateAI(uint32 diff);
-
-    // Hook used to execute events scheduled into EventMap without the need
-    // to override UpdateAI
-    // note: You must re-schedule the event within this method if the event
-    // is supposed to run more than once
-    virtual void ExecuteEvent(uint32 /*eventId*/) { }
-
-    virtual void ScheduleTasks() { }
-
-    void Reset()
-    {
-        _Reset();
-    }
-    void EnterCombat(Unit* /*who*/)
-    {
-        _EnterCombat();
-    }
-    void JustDied(Unit* /*killer*/)
-    {
-        _JustDied();
-    }
-    void JustReachedHome()
-    {
-        _JustReachedHome();
-    }
-
-    protected:
-    void _Reset();
-    bool _EnterCombat();
-    void _JustDied();
-    void _JustReachedHome()
-    {
-        me->setActive(false, ActiveFlags::InCombat);
-    }
-    void _DespawnAtEvade();
-
-    bool CheckInRoom()
-    {
-        if (CheckBoundary(me))
-            return true;
-
-        EnterEvadeMode();
-        return false;
-    }
-
-    bool CheckInArea(const uint32 diff, uint32 areaId)
-    {
-        if (_checkareaTimer <= diff)
-            _checkareaTimer = 3000;
-        else
+        BossBoundaryMap const* GetBoundary() const
         {
-            _checkareaTimer -= diff;
-            return true;
+            return _boundary;
         }
 
-        if (me->GetAreaId() != areaId)
+        void JustSummoned(Creature* summon) override;
+        void SummonedCreatureDespawn(Creature* summon) override;
+
+        virtual void UpdateAI(uint32 diff) override;
+
+        // Hook used to execute events scheduled into EventMap without the need
+        // to override UpdateAI
+        // note: You must re-schedule the event within this method if the event
+        // is supposed to run more than once
+        virtual void ExecuteEvent(uint32 /*eventId*/) { }
+
+        virtual void ScheduleTasks() { }
+
+        void Reset() override { _Reset(); }
+        void JustEngagedWith(Unit* /*who*/) override { _JustEngagedWith(); }
+        void JustDied(Unit* /*killer*/) override { _JustDied(); }
+        void JustReachedHome() override { _JustReachedHome(); }
+
+
+    protected:
+        void _Reset();
+        bool _JustEngagedWith();
+        void _JustDied();
+        void _JustReachedHome();
+        void _DespawnAtEvade();
+
+        bool CheckInRoom()
         {
+            if (CheckBoundary(me))
+                return true;
+
             EnterEvadeMode();
             return false;
         }
 
-        return true;
-    }
+        bool CheckInArea(const uint32 diff, uint32 areaId)
+        {
+            if (_checkareaTimer <= diff)
+                _checkareaTimer = 3000;
+            else
+            {
+                _checkareaTimer -= diff;
+                return true;
+            }
 
-    bool CheckBoundary(Unit* who);
-    void TeleportCheaters();
+            if (me->GetAreaId() != areaId)
+            {
+                EnterEvadeMode();
+                return false;
+            }
 
-    EventMap events;
-    mutable SummonList summons;
-    TaskScheduler scheduler;
+            return true;
+        }
 
-    private:
-    BossBoundaryMap const* const _boundary;
-    uint32 const _bossId;
-    uint32 _checkareaTimer;
+        bool CheckBoundary(Unit* who);
+        void TeleportCheaters();
+
+        EventMap events;
+        mutable SummonList summons;
+        TaskScheduler scheduler;
+
+        private:
+        BossBoundaryMap const* const _boundary;
+        uint32 const _bossId;
+        uint32 _checkareaTimer;
 };
 
 class WorldBossAI : public ScriptedAI
 {
     public:
-    WorldBossAI(Creature* creature);
-    virtual ~WorldBossAI()
-    { }
+        WorldBossAI(Creature* creature);
+        virtual ~WorldBossAI() { }
 
-    void JustSummoned(Creature* summon);
-    void SummonedCreatureDespawn(Creature* summon);
+        void JustSummoned(Creature* summon) override;
+        void SummonedCreatureDespawn(Creature* summon) override;
 
-    virtual void UpdateAI(uint32 diff);
+        virtual void UpdateAI(uint32 diff) override;
 
-    // Hook used to execute events scheduled into EventMap without the need
-    // to override UpdateAI
-    // note: You must re-schedule the event within this method if the event
-    // is supposed to run more than once
-    virtual void ExecuteEvent(uint32 /*eventId*/)
-    { }
+        // Hook used to execute events scheduled into EventMap without the need
+        // to override UpdateAI
+        // note: You must re-schedule the event within this method if the event
+        // is supposed to run more than once
+        virtual void ExecuteEvent(uint32 /*eventId*/) { }
 
-    void Reset()
-    {
-        _Reset();
-    }
-    void EnterCombat(Unit* /*who*/)
-    {
-        _EnterCombat();
-    }
-    void JustDied(Unit* /*killer*/)
-    {
-        _JustDied();
-    }
+        void Reset() override { _Reset(); }
+        void JustEngagedWith(Unit* /*who*/) override { _JustEngagedWith(); }
+        void JustDied(Unit* /*killer*/) override { _JustDied(); }
 
     protected:
-    void _Reset();
-    void _EnterCombat();
-    void _JustDied();
+        void _Reset();
+        void _JustEngagedWith();
+        void _JustDied();
 
-    EventMap events;
-    SummonList summons;
+        EventMap events;
+        SummonList summons;
 };
 
 class CasterMovement
@@ -667,7 +598,7 @@ struct customCreatureAI : public ScriptedAI
 {
     customCreatureAI(Creature* creature) : ScriptedAI(creature), summons(me), isCaster(false) { }
 
-    virtual uint64 GetLowestFriendGUID() { return 0; }
+    virtual ObjectGuid GetLowestFriendGUID() { return ObjectGuid::Empty; }
 
     void ExecuteTargetEvent(uint32 spell_id, uint32 repeat, uint32 event_id, uint32 curEventId, TargetPriority pTarget = PRIORITY_VICTIM)
     {
@@ -749,7 +680,7 @@ struct customCreatureAI : public ScriptedAI
         EventMap events, nonCombatEvents;
         SummonList summons;
         bool isCaster;
-        uint64 targetGUID = 0;
+        ObjectGuid targetGUID = ObjectGuid::Empty;
 
 };
 
@@ -761,7 +692,7 @@ public:
     void Update(uint32 diff);
 private:
     uint32 m_assistTimer = 0;
-    uint64 m_assistTarget = 0;
+    ObjectGuid m_assistTarget = ObjectGuid::Empty;
     Creature* me;
 };
 

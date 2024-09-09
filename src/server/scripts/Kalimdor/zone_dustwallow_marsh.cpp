@@ -169,7 +169,7 @@ public:
         if (action == GOSSIP_SENDER_INFO)
         {
             player->CLOSE_GOSSIP_MENU();
-            player->KilledMonsterCredit(NPC_THERAMORE_GUARD, 0);
+            player->KilledMonsterCredit(NPC_THERAMORE_GUARD, ObjectGuid::Empty);
             creature->AI()->Talk(SAY_QUEST1);
             creature->CastSpell(creature, SPELL_DOCTORED_LEAFLET, false);
             creature->RemoveFlag(UNIT_FIELD_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
@@ -558,7 +558,7 @@ public:
             }
         }
 
-        void EnterCombat(Unit* who) override
+        void JustEngagedWith(Unit* who) override
         {
             Talk(SAY_ATTACKED_1, who);
         }

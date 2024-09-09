@@ -114,7 +114,7 @@ class npc_torek : public CreatureScript
                 Completed = false;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
             }
 
@@ -208,7 +208,7 @@ class npc_ruul_snowhoof : public CreatureScript
                 switch (waypointId)
                 {
                     case 0:
-                        me->SetUInt32Value(UNIT_FIELD_ANIM_TIER, 0);
+                        me->SetUInt32Value(UNIT_FIELD_BYTES_1, 0);
                         if (GameObject* Cage = me->FindNearestGameObject(GO_CAGE, 20))
                             Cage->SetGoState(GO_STATE_ACTIVE);
                         break;
@@ -228,7 +228,7 @@ class npc_ruul_snowhoof : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void Reset() override
             {
@@ -361,7 +361,7 @@ class npc_muglash : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (Player* player = GetPlayerForEscort())
                     if (HasEscortState(STATE_ESCORT_PAUSED))

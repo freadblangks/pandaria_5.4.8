@@ -19,6 +19,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "Common.h"
 #include "DBCFileLoader.h"
 #include "Errors.h"
 
@@ -141,6 +142,9 @@ uint32 DBCFileLoader::GetFormatRecordSize(const char* format, int32* index_pos)
             case FT_STRING:
                 recordsize += sizeof(DbcStr);
                 break;
+            case FT_STRING_NOT_LOCALIZED:
+                recordsize += sizeof(char*);
+                break;
             case FT_SORT:
                 i = x;
                 break;
@@ -247,6 +251,9 @@ char* DBCFileLoader::AutoProduceData(const char* format, uint32& records, char**
                 case FT_STRING:
                     offset += sizeof(DbcStr);
                     break;
+                case FT_STRING_NOT_LOCALIZED:
+                    *((char**)(&dataTable[offset])) = nullptr;   // will be replaces non-empty or "" strings in AutoProduceStrings
+                    offset += sizeof(char*);
                 case FT_NA:
                 case FT_NA_BYTE:
                 case FT_SORT:
@@ -296,6 +303,14 @@ char* DBCFileLoader::AutoProduceStrings(char const* format, char* dataTable, Loc
                     strings->m_impl[locale] = stringPool+(st-(const char*)stringTable);
                     offset += sizeof(DbcStr);
                     break;
+                 }
+                 case FT_STRING_NOT_LOCALIZED:
+                 {
+                     char** db2str = (char**)(&dataTable[offset]);
+                     char const* st = getRecord(y).getString(x);
+                     *db2str = stringPool + (st - (char const*)stringTable);
+                     offset += sizeof(char*);
+                     break;
                  }
                  case FT_NA:
                  case FT_NA_BYTE:

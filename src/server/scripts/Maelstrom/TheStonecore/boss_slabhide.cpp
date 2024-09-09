@@ -61,7 +61,7 @@ class boss_slabhide : public CreatureScript
 
             EventMap events, nonCombatEvents;
             bool PreEventDone;
-            uint64 doorGuid;
+            ObjectGuid doorGuid;
 
             void InitializeAI() override
             {
@@ -80,7 +80,7 @@ class boss_slabhide : public CreatureScript
                 nonCombatEvents.ScheduleEvent(EVENT_STALACTITE, urand(1500, 3000));
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_PACIFIED);
 
-                me->SetAnimationTier(UnitAnimationTier::Fly);
+                me->SetAnimTier(AnimTier::Fly);
                 me->OverrideInhabitType(INHABIT_AIR);
                 me->UpdateMovementFlags();
                 PreEventDone = false;
@@ -98,16 +98,16 @@ class boss_slabhide : public CreatureScript
                 summons.DespawnAll();
                 nonCombatEvents.Reset();
                 HandleCloseEntranceRockwall();
-                doorGuid = 0;
+                doorGuid = ObjectGuid::Empty;
 
-                me->SetAnimationTier(UnitAnimationTier::Ground);
+                me->SetAnimTier(AnimTier::Ground);
                 me->OverrideInhabitType(INHABIT_GROUND);
                 me->UpdateMovementFlags();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
 
                 if (instance)
                     instance->SendEncounterUnit(ENCOUNTER_FRAME_ENGAGE, me);
@@ -146,7 +146,7 @@ class boss_slabhide : public CreatureScript
                         case 2:
                             me->SetCanFly(false);
                             SetCombatMovement(true);
-                            me->SetAnimationTier(UnitAnimationTier::Ground);
+                            me->SetAnimTier(AnimTier::Ground);
                             me->OverrideInhabitType(INHABIT_GROUND);
                             me->UpdateMovementFlags();
                             events.ScheduleEvent(EVENT_SAND_BLAST, 10000);
@@ -197,7 +197,7 @@ class boss_slabhide : public CreatureScript
                             me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC | UNIT_FLAG_PACIFIED);
                             me->SetFacingTo(3.58f);
                             me->SetHomePosition(*me);
-                            me->SetAnimationTier(UnitAnimationTier::Ground);
+                            me->SetAnimTier(AnimTier::Ground);
                             me->OverrideInhabitType(INHABIT_GROUND);
                             me->UpdateMovementFlags();
                             break;
@@ -219,7 +219,7 @@ class boss_slabhide : public CreatureScript
                         case EVENT_FLY:
                             events.Reset();
                             SetCombatMovement(false);
-                            me->SetAnimationTier(UnitAnimationTier::Fly);
+                            me->SetAnimTier(AnimTier::Fly);
                             me->OverrideInhabitType(INHABIT_AIR);
                             me->UpdateMovementFlags();
                             me->SetCanFly(true);
@@ -360,7 +360,7 @@ class AreaTrigger_at_behind_slabhide : public AreaTriggerScript
         bool OnTrigger(Player* player, AreaTriggerEntry const* trigger) override
         {
             if (InstanceScript* instance = player->GetInstanceScript())
-                if (Creature* Slabhide = ObjectAccessor::GetCreature(*player, instance->GetData64(DATA_SLABHIDE)))
+                if (Creature* Slabhide = ObjectAccessor::GetCreature(*player, instance->GetGuidData(DATA_SLABHIDE)))
                     Slabhide->AI()->DoAction(ACTION_STALACTITE_REMOVE);
 
             return false;

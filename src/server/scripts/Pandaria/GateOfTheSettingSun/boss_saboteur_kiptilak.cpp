@@ -110,9 +110,9 @@ class boss_saboteur_kiptilak : public CreatureScript
                     Talk(SAY_SLAY);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
-                _EnterCombat();
+                _JustEngagedWith();
                 Talk(SAY_AGGRO);
                 me->GetMotionMaster()->Clear();
 
@@ -454,7 +454,7 @@ class AreaTrigger_at_first_door : public AreaTriggerScript
                 if (instance->GetData(DATA_OPEN_FIRST_DOOR) != DONE)
                 {
                     instance->SetData(DATA_OPEN_FIRST_DOOR, DONE);
-                    if (Unit* kiptilak = Unit::GetCreature(*player, instance->GetData64(DATA_KIPTILAK)))
+                    if (Unit* kiptilak = Unit::GetCreature(*player, instance->GetGuidData(DATA_KIPTILAK)))
                         kiptilak->GetAI()->DoAction(ACTION_INTRO);
                 }
             }

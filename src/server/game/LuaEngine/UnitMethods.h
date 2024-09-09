@@ -31,7 +31,7 @@ namespace LuaUnit
     {
         uint64 guid = sEluna->CHECK_ULONG(L, 1);
 
-        unit->SetOwnerGUID(guid);
+        unit->SetOwnerGUID(ObjectGuid(guid));
         return 0;
     }
 
@@ -133,9 +133,9 @@ namespace LuaUnit
         return 1;
     }
 
-    int GetMountId(lua_State* L, Unit* unit)
+    int GetMountDisplayId(lua_State* L, Unit* unit)
     {
-        sEluna->Push(L, unit->GetMountID());
+        sEluna->Push(L, unit->GetMountDisplayId());
         return 1;
     }
 
@@ -237,9 +237,9 @@ namespace LuaUnit
         bool apply = luaL_optbool(L, 1, true);
 
         if (apply)
-            unit->SetByteFlag(UNIT_FIELD_SHAPESHIFT_FORM, 1, UNIT_BYTE2_FLAG_FFA_PVP);
+            unit->SetByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_FFA_PVP);
         else
-            unit->RemoveByteFlag(UNIT_FIELD_SHAPESHIFT_FORM, 1, UNIT_BYTE2_FLAG_FFA_PVP);
+            unit->RemoveByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_FFA_PVP);
 
         return 0;
     }
@@ -250,12 +250,12 @@ namespace LuaUnit
 
         if (apply)
         {
-            unit->SetByteFlag(UNIT_FIELD_SHAPESHIFT_FORM, 1, UNIT_BYTE2_FLAG_SANCTUARY);
+            unit->SetByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_SANCTUARY);
             unit->CombatStop();
             unit->CombatStopWithPets();
         }
         else
-            unit->RemoveByteFlag(UNIT_FIELD_SHAPESHIFT_FORM, 1, UNIT_BYTE2_FLAG_SANCTUARY);
+            unit->RemoveByteFlag(UNIT_FIELD_BYTES_2, 1, UNIT_BYTE2_FLAG_SANCTUARY);
 
         return 0;
     }
@@ -499,7 +499,7 @@ namespace LuaUnit
 
     int GetStandState(lua_State* L, Unit* unit)
     {
-        sEluna->Push(L, unit->getStandState());
+        sEluna->Push(L, unit->GetStandState());
         return 0;
     }
 
@@ -969,35 +969,35 @@ namespace LuaUnit
     int SetCreatorGUID(lua_State* L, Unit* unit)
     {
         uint64 guid = sEluna->CHECK_ULONG(L, 1);
-        unit->SetCreatorGUID(guid);
+        unit->SetCreatorGUID(ObjectGuid(guid));
         return 0;
     }
 
     int SetMinionGUID(lua_State* L, Unit* unit)
     {
         uint64 guid = sEluna->CHECK_ULONG(L, 1);
-        unit->SetPetGUID(guid); // TC MinionGuid methods = same field as Mangos PetGuid
+        unit->SetPetGUID(ObjectGuid(guid)); // TC MinionGuid methods = same field as Mangos PetGuid
         return 0;
     }
 
     int SetCharmerGUID(lua_State* L, Unit* unit)
     {
         uint64 guid = sEluna->CHECK_ULONG(L, 1);
-        unit->SetCharmerGUID(guid);
+        unit->SetCharmerGUID(ObjectGuid(guid));
         return 0;
     }
 
     int SetPetGUID(lua_State* L, Unit* unit)
     {
         uint64 guid = sEluna->CHECK_ULONG(L, 1);
-        unit->SetPetGUID(guid);
+        unit->SetPetGUID(ObjectGuid(guid));
         return 0;
     }
 
     int SetCritterGUID(lua_State* L, Unit* unit)
     {
         uint64 guid = sEluna->CHECK_ULONG(L, 1);
-        unit->SetCritterGUID(guid);
+        unit->SetCritterGUID(ObjectGuid(guid));
         return 0;
     }
 
@@ -1085,32 +1085,33 @@ namespace LuaUnit
     {
         //@TODO
         const char* msg = luaL_checkstring(L, 1);
-        uint64 receiver = luaL_checknumber(L, 2);
-        bool bossWhisper = luaL_optbool(L, 3, false);
+        uint32 lang = luaL_checkunsigned(L, 2);
+        ObjectGuid receiver(uint64(luaL_checknumber(L, 3)));
+        bool bossWhisper = luaL_optbool(L, 4, false);
 
         WorldObject* target = nullptr;
         if (receiver)
         {
-            switch (GUID_HIPART(receiver))
+            switch (receiver.GetHigh())
             {
-            case HIGHGUID_UNIT:
-            case HIGHGUID_VEHICLE:
-                target = HashMapHolder<Creature>::Find(receiver);
+            case HighGuid::Unit:
+            case HighGuid::Vehicle:
+                target = unit->GetMap()->GetCreature(receiver);;
                 break;
-            case HIGHGUID_PET:
-                target = HashMapHolder<Pet>::Find(receiver);
+            case HighGuid::Pet:
+                target = unit->GetMap()->GetPet(receiver);
                 break;
-            case HIGHGUID_PLAYER:                       // empty GUID case also
-                target = HashMapHolder<Player>::Find(receiver);
+            case HighGuid::Player:                       // empty GUID case also
+                target = unit->GetMap()->GetPlayer(receiver);
                 break;
-            case HIGHGUID_TRANSPORT:
-            case HIGHGUID_GAMEOBJECT:
-                target = HashMapHolder<GameObject>::Find(receiver);
+            case HighGuid::Transport:
+            case HighGuid::GameObject:
+                target = unit->GetMap()->GetGameObject(receiver);
                 break;
-            case HIGHGUID_CORPSE:
-                target = HashMapHolder<Corpse>::Find(receiver);
+            case HighGuid::Corpse:
+                target = unit->GetMap()->GetCorpse(receiver);
                 break;
-                //case HIGHGUID_MO_TRANSPORT:
+                //case HighGuid::Mo_Transport:
                 //{
                 //    GameObject* go = HashMapHolder<GameObject>::Find(receiver);
                 //    target = go ? go->ToTransport() : NULL;
@@ -1123,7 +1124,7 @@ namespace LuaUnit
             }
         }
         if (receiver && std::string(msg).length() > 0)
-            unit->MonsterWhisper(msg, target->ToPlayer(), bossWhisper);
+            unit->Whisper(msg, Language(lang), target->ToPlayer(), bossWhisper);
         return 0;
     }
 
@@ -1131,33 +1132,33 @@ namespace LuaUnit
     {
         //@TODO
         const char* msg = luaL_checkstring(L, 1);
-        uint64 receiver = luaL_checknumber(L, 2);
+        ObjectGuid receiver(uint64(luaL_checknumber(L, 2)));
         bool bossEmote = luaL_optbool(L, 3, false);
 
 
         WorldObject* target = nullptr;
         if (receiver)
         {
-            switch (GUID_HIPART(receiver))
+            switch (receiver.GetHigh())
             {
-            case HIGHGUID_UNIT:
-            case HIGHGUID_VEHICLE:
-                target = HashMapHolder<Creature>::Find(receiver);
+            case HighGuid::Unit:
+            case HighGuid::Vehicle:
+                target = unit->GetMap()->GetCreature(receiver);
                 break;
-            case HIGHGUID_PET:
-                target = HashMapHolder<Pet>::Find(receiver);
+            case HighGuid::Pet:
+                target = unit->GetMap()->GetPet(receiver);
                 break;
-            case HIGHGUID_PLAYER:                       // empty GUID case also
-                target = HashMapHolder<Player>::Find(receiver);
+            case HighGuid::Player:                       // empty GUID case also
+                target = unit->GetMap()->GetPlayer(receiver);
                 break;
-            case HIGHGUID_TRANSPORT:
-            case HIGHGUID_GAMEOBJECT:
-                target = HashMapHolder<GameObject>::Find(receiver);
+            case HighGuid::Transport:
+            case HighGuid::GameObject:
+                target = unit->GetMap()->GetGameObject(receiver);
                 break;
-            case HIGHGUID_CORPSE:
-                target = HashMapHolder<Corpse>::Find(receiver);
+            case HighGuid::Corpse:
+                target = unit->GetMap()->GetCorpse(receiver);
                 break;
-            //case HIGHGUID_MO_TRANSPORT:
+            //case HighGuid::Mo_Transport:
             //{
             //    GameObject* go = HashMapHolder<GameObject>::Find(receiver);
             //    target = go ? go->ToTransport() : NULL;
@@ -1171,7 +1172,7 @@ namespace LuaUnit
         }
 
         if (std::string(msg).length() > 0)
-            unit->MonsterTextEmote(msg, target, bossEmote);
+            unit->TextEmote(msg, target, bossEmote);
         return 0;
     }
 
@@ -1180,31 +1181,31 @@ namespace LuaUnit
         //@TODO
         const char* msg = luaL_checkstring(L, 1);
         uint32 language = luaL_checknumber(L, 2);
-        uint64 guid = luaL_checknumber(L, 3);
+        ObjectGuid guid(uint64(luaL_checknumber(L, 3)));
 
         WorldObject* target = nullptr;
         if (guid)
         {
-            switch (GUID_HIPART(guid))
+            switch (guid.GetHigh())
             {
-            case HIGHGUID_UNIT:
-            case HIGHGUID_VEHICLE:
-                target = HashMapHolder<Creature>::Find(guid);
+            case HighGuid::Unit:
+            case HighGuid::Vehicle:
+                target = unit->GetMap()->GetCreature(guid);
                 break;
-            case HIGHGUID_PET:
-                target = HashMapHolder<Pet>::Find(guid);
+            case HighGuid::Pet:
+                target = unit->GetMap()->GetPet(guid);
                 break;
-            case HIGHGUID_PLAYER:                       // empty GUID case also
-                target = HashMapHolder<Player>::Find(guid);
+            case HighGuid::Player:                       // empty GUID case also
+                target = unit->GetMap()->GetPlayer(guid);
                 break;
-            case HIGHGUID_TRANSPORT:
-            case HIGHGUID_GAMEOBJECT:
-                target = HashMapHolder<GameObject>::Find(guid);
+            case HighGuid::Transport:
+            case HighGuid::GameObject:
+                target = unit->GetMap()->GetGameObject(guid);
                 break;
-            case HIGHGUID_CORPSE:
-                target = HashMapHolder<Corpse>::Find(guid);
+            case HighGuid::Corpse:
+                target = unit->GetMap()->GetCorpse(guid);
                 break;
-            //case HIGHGUID_MO_TRANSPORT:
+            //case HighGuid::Mo_Transport:
             //{
             //    GameObject* go = HashMapHolder<GameObject>::Find(guid);
             //    target = go ? go->ToTransport() : NULL;
@@ -1218,7 +1219,7 @@ namespace LuaUnit
         }
 
         if (std::string(msg).length() > 0)
-            unit->MonsterSay(msg, language, target);
+            unit->Say(msg, Language(language), target);
         return 0;
     }
 
@@ -1227,31 +1228,31 @@ namespace LuaUnit
         //@TODO
         const char* msg = luaL_checkstring(L, 1);
         uint32 language = luaL_checknumber(L, 2);
-        uint64 guid = luaL_checknumber(L, 3);
+        ObjectGuid guid(uint64(luaL_checknumber(L, 3)));
 
         WorldObject* target = nullptr;
         if (guid)
         {
-            switch (GUID_HIPART(guid))
+            switch (guid.GetHigh())
             {
-            case HIGHGUID_UNIT:
-            case HIGHGUID_VEHICLE:
-                target = HashMapHolder<Creature>::Find(guid);
+            case HighGuid::Unit:
+            case HighGuid::Vehicle:
+                target = unit->GetMap()->GetCreature(guid);
                 break;
-            case HIGHGUID_PET:
-                target = HashMapHolder<Pet>::Find(guid);
+            case HighGuid::Pet:
+                target = unit->GetMap()->GetPet(guid);
                 break;
-            case HIGHGUID_PLAYER:                       // empty GUID case also
-                target = HashMapHolder<Player>::Find(guid);
+            case HighGuid::Player:                       // empty GUID case also
+                target = unit->GetMap()->GetPlayer(guid);
                 break;
-            case HIGHGUID_TRANSPORT:
-            case HIGHGUID_GAMEOBJECT:
-                target = HashMapHolder<GameObject>::Find(guid);
+            case HighGuid::Transport:
+            case HighGuid::GameObject:
+                target = unit->GetMap()->GetGameObject(guid);
                 break;
-            case HIGHGUID_CORPSE:
-                target = HashMapHolder<Corpse>::Find(guid);
+            case HighGuid::Corpse:
+                target = unit->GetMap()->GetCorpse(guid);
                 break;
-                //case HIGHGUID_MO_TRANSPORT:
+                //case HighGuid::Mo_Transport:
                 //{
                 //    GameObject* go = HashMapHolder<GameObject>::Find(guid);
                 //    target = go ? go->ToTransport() : NULL;
@@ -1266,7 +1267,7 @@ namespace LuaUnit
 
 
         if (std::string(msg).length() > 0)
-            unit->MonsterYell(msg, language, target);
+            unit->Yell(msg, Language(language), target);
         return 0;
     }
 
@@ -1458,59 +1459,59 @@ namespace LuaUnit
         return 1;
     }
 
-    int GetFriendlyUnitsInRange(lua_State* L, Unit* unit)
+    int GetFriendlyUnitsInRange(lua_State* L, Unit* unit) // error in compile TODO
     {
-        float range = luaL_optnumber(L, 1, SIZE_OF_GRIDS);
+        // float range = luaL_optnumber(L, 1, SIZE_OF_GRIDS);
 
-        UnitList list;
-        //WoWSource::AnyFriendlyUnitInObjectRangeCheck checker(unit, unit, range);
-        //WoWSource::UnitListSearcher<WoWSource::AnyFriendlyUnitInObjectRangeCheck> searcher(unit, list, checker);
-        Trinity::AnyFriendlyUnitInObjectRangeCheck u_check(unit, unit, range);
-        Trinity::UnitListSearcher<Trinity::AnyFriendlyUnitInObjectRangeCheck> searcher(unit, list, u_check);
-        unit->VisitNearbyObject(range, searcher);
-        Eluna::ObjectGUIDCheck guidCheck(unit->GetGUID());
-        list.remove_if (guidCheck);
+        // UnitList list;
+        // //WoWSource::AnyFriendlyUnitInObjectRangeCheck checker(unit, unit, range);
+        // //WoWSource::UnitListSearcher<WoWSource::AnyFriendlyUnitInObjectRangeCheck> searcher(unit, list, checker);
+        // Trinity::AnyFriendlyUnitInObjectRangeCheck u_check(unit, unit, range);
+        // Trinity::UnitListSearcher<Trinity::AnyFriendlyUnitInObjectRangeCheck> searcher(unit, list, u_check);
+        // unit->VisitNearbyObject(range, searcher);
+        // Eluna::ObjectGUIDCheck guidCheck(unit->GetGUID());
+        // list.remove_if (guidCheck);
 
-        lua_newtable(L);
-        int tbl = lua_gettop(L);
-        uint32 i = 0;
+        // lua_newtable(L);
+        // int tbl = lua_gettop(L);
+        // uint32 i = 0;
 
-        for (UnitList::const_iterator it = list.begin(); it != list.end(); ++it)
-        {
-            sEluna->Push(L, ++i);
-            sEluna->Push(L, *it);
-            lua_settable(L, tbl);
-        }
+        // for (UnitList::const_iterator it = list.begin(); it != list.end(); ++it)
+        // {
+        //     sEluna->Push(L, ++i);
+        //     sEluna->Push(L, *it);
+        //     lua_settable(L, tbl);
+        // }
 
-        lua_settop(L, tbl);
+        // lua_settop(L, tbl);
         return 1;
     }
 
-    int GetUnfriendlyUnitsInRange(lua_State* L, Unit* unit)
+    int GetUnfriendlyUnitsInRange(lua_State* L, Unit* unit) // error in compile TODO
     {
-        float range = luaL_optnumber(L, 1, SIZE_OF_GRIDS);
+        // float range = luaL_optnumber(L, 1, SIZE_OF_GRIDS);
 
-        UnitList list;
-        //WoWSource::AnyUnfriendlyUnitInObjectRangeCheck checker(unit, unit, range);
-        //WoWSource::UnitListSearcher<WoWSource::AnyUnfriendlyUnitInObjectRangeCheck> searcher(unit, list, checker);
-        Trinity::AnyUnfriendlyUnitInObjectRangeCheck u_check(unit, unit, range);
-        Trinity::UnitListSearcher<Trinity::AnyUnfriendlyUnitInObjectRangeCheck> searcher(unit, list, u_check);
-        unit->VisitNearbyObject(range, searcher);
-        Eluna::ObjectGUIDCheck guidCheck(unit->GetGUID());
-        list.remove_if (guidCheck);
+        // UnitList list;
+        // //WoWSource::AnyUnfriendlyUnitInObjectRangeCheck checker(unit, unit, range);
+        // //WoWSource::UnitListSearcher<WoWSource::AnyUnfriendlyUnitInObjectRangeCheck> searcher(unit, list, checker);
+        // Trinity::AnyUnfriendlyUnitInObjectRangeCheck u_check(unit, unit, range);
+        // Trinity::UnitListSearcher<Trinity::AnyUnfriendlyUnitInObjectRangeCheck> searcher(unit, list, u_check);
+        // unit->VisitNearbyObject(range, searcher);
+        // Eluna::ObjectGUIDCheck guidCheck(unit->GetGUID());
+        // list.remove_if (guidCheck);
 
-        lua_newtable(L);
-        int tbl = lua_gettop(L);
-        uint32 i = 0;
+        // lua_newtable(L);
+        // int tbl = lua_gettop(L);
+        // uint32 i = 0;
 
-        for (UnitList::const_iterator it = list.begin(); it != list.end(); ++it)
-        {
-            sEluna->Push(L, ++i);
-            sEluna->Push(L, *it);
-            lua_settable(L, tbl);
-        }
+        // for (UnitList::const_iterator it = list.begin(); it != list.end(); ++it)
+        // {
+        //     sEluna->Push(L, ++i);
+        //     sEluna->Push(L, *it);
+        //     lua_settable(L, tbl);
+        // }
 
-        lua_settop(L, tbl);
+        // lua_settop(L, tbl);
         return 1;
     }
 

@@ -116,7 +116,7 @@ class boss_supremus : public CreatureScript
                 summons.DespawnAll();
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (!instance || !instance->CheckRequiredBosses(DATA_SUPREMUS_EVENT, who->ToPlayer()))
                 {
@@ -165,7 +165,7 @@ class boss_supremus : public CreatureScript
                 if (instance)
                 {
                     instance->SetData(DATA_SUPREMUS_EVENT, DONE);
-                    instance->HandleGameObject(instance->GetData64(DATA_GAMEOBJECT_SUPREMUS_DOORS), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GAMEOBJECT_SUPREMUS_DOORS), true);
                 }
                 summons.DespawnAll();
             }
@@ -289,7 +289,7 @@ class npc_volcano : public CreatureScript
 
             uint32 wait;
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void MoveInLineOfSight(Unit* /*who*/) override { }
 

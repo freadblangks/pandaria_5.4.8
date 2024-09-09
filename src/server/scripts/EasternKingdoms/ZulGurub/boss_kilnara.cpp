@@ -169,7 +169,7 @@ class boss_kilnara : public CreatureScript
                 ResetAchievement();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
                 bTwoPhase = false;
@@ -513,12 +513,12 @@ class spell_kilnara_rat_lure : public SpellScript
     {
         GetHitUnit()->CastSpell(GetCaster(), SPELL_POUNCE_RAT, true);
 
-        uint64 ratGuid = GetCaster()->GetGUID();
+        ObjectGuid ratGuid = GetCaster()->GetGUID();
         GetHitUnit()->Schedule(Milliseconds(GetHitUnit()->GetSplineDuration()), [ratGuid](Unit* self)
         {
             self->CastSpell(self, SPELL_BLOOD_FRENZY, true);
             if (InstanceScript* instance = self->GetInstanceScript())
-                if (Creature* kilnara = ObjectAccessor::GetCreature(*self, instance->GetData64(DATA_KILNARA)))
+                if (Creature* kilnara = ObjectAccessor::GetCreature(*self, instance->GetGuidData(DATA_KILNARA)))
                     kilnara->AI()->DoAction(ACTION_CAT_FED);
 
             if (Creature* rat = ObjectAccessor::GetCreature(*self, ratGuid))

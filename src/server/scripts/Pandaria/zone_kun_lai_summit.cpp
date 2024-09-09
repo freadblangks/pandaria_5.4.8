@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -21,6 +21,7 @@
 #include "ScriptedEscortAI.h"
 #include "Vehicle.h"
 #include "CombatAI.h"
+#include "Random.h"
 
 enum ZoneKunLaiSummitSpellData
 {
@@ -644,7 +645,7 @@ struct npc_terracotta_gladiator : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_WICKED_BLADE, randtime(4s + 500ms, 13s));
         events.ScheduleEvent(EVENT_GROUND_SMASH, 10s);
@@ -689,7 +690,7 @@ struct npc_terracotta_defender : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_PETRFYING_STRIKE, randtime(4s + 500ms, 12s));
     }
@@ -728,7 +729,7 @@ struct npc_upland_raven : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_SWOOP, randtime(4s + 500ms, 13s));
         events.ScheduleEvent(EVENT_HAWK_REND, 8s);
@@ -775,7 +776,7 @@ struct npc_zandalari_warrior : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_SLAM, randtime(4s + 500ms, 13s));
         events.ScheduleEvent(EVENT_BACKHAND, 8s);
@@ -822,7 +823,7 @@ struct npc_hungry_yeti : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_STOMP, 8s);
     }
@@ -861,7 +862,7 @@ struct npc_mischievous_snow_sprite : public ScriptedAI
         hasKnee = false;
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_SNOWBALL, randtime(4s + 500ms, 6s));
     }
@@ -909,7 +910,7 @@ struct npc_tomb_guardian : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_JADE_LIGHTNING, randtime(4s + 500ms, 12s));
         events.ScheduleEvent(EVENT_JADE_STRIKE, 10s);
@@ -972,7 +973,7 @@ class npc_waterspeaker_gorai : public CreatureScript
             if (action == GOSSIP_ACTION_INFO_DEF + 1)
             {
                 player->KilledMonsterCredit(creature->GetEntry());
-                creature->AI()->SetGUID(player->GetGUID(), 0);
+                creature->AI()->SetGUID(player->GetGUID(), ObjectGuid::Empty);
                 creature->RemoveFlag(UNIT_FIELD_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER | UNIT_NPC_FLAG_GOSSIP);
                 player->CLOSE_GOSSIP_MENU();
             }
@@ -988,13 +989,13 @@ class npc_waterspeaker_gorai : public CreatureScript
 
             uint32 phase;
             uint32 phaseTimer;
-            uint64 playerGUID;
+            ObjectGuid playerGUID;
 
             void Reset() override
             {
                 phase = 0;
                 phaseTimer = 0;
-                playerGUID = 0;
+                playerGUID = ObjectGuid::Empty;
             }
 
             void SummonedCreatureDies(Creature* creature, Unit*  killer) override
@@ -1009,7 +1010,7 @@ class npc_waterspeaker_gorai : public CreatureScript
                 phaseTimer = 5000;
             }
 
-            void SetGUID(uint64 guid, int32 /*type*/) override
+            void SetGUID(ObjectGuid guid, int32 /*type*/) override
             {
                 playerGUID = guid;
                 phase = 1;
@@ -1098,7 +1099,7 @@ struct npc_ordo_overseer : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*victim*/)
+    void JustEngagedWith(Unit* /*victim*/) override
     {
         events.ScheduleEvent(EVENT_AGONIZING_STRIKE, randtime(5s, 10s));
     }
@@ -1116,8 +1117,7 @@ struct npc_ordo_overseer : public ScriptedAI
                 {
                     player->KilledMonsterCredit(slave->GetEntry());
                     slave->AI()->Talk(SAY_FARMSTEAD_SLAVE);
-                    Position pos;
-                    slave->GetRandomNearPosition(pos, 30.f);
+                    Position pos = slave->GetRandomNearPosition(30.f);
                     slave->GetMotionMaster()->MovePoint(1, pos);
                     slave->DespawnOrUnsummon(5 * IN_MILLISECONDS);
                 }
@@ -1175,6 +1175,14 @@ class go_yaungol_banner : public GameObjectScript
         }
 };
 
+enum ExplosivesBarrelMiscs 
+{
+    EMOTE_EXPLO_BARREL_THREE = 0,
+    EMOTE_EXPLO_BARREL_TWO   = 1,
+    EMOTE_EXPLO_BARREL_ONE   = 2,
+    EMOTE_EXPLO_BARREL_BOOM  = 3
+};
+
 struct npc_explosives_barrel : public ScriptedAI
 {
     npc_explosives_barrel(Creature* creature) : ScriptedAI(creature) { }
@@ -1193,20 +1201,17 @@ struct npc_explosives_barrel : public ScriptedAI
         if (tickTimer <= diff)
         {
             --phase;
-            std::string text = "";
-
-            if (phase == 3)
-                text = "Three...";
-            else if (phase == 2)
-                text = "Two...";
-            else if (phase == 1)
-                text = "One...";
-            else if (phase == 0)
-                text = "Boom";
 
             if (auto owner = me->GetCharmerOrOwnerPlayerOrPlayerItself())
             {
-                owner->MonsterTextEmote(text.c_str(), owner, true);
+                if (phase == 3)
+                    Talk(EMOTE_EXPLO_BARREL_THREE);
+                else if (phase == 2)
+                    Talk(EMOTE_EXPLO_BARREL_TWO);
+                else if (phase == 1)
+                    Talk(EMOTE_EXPLO_BARREL_ONE);
+                else if (phase == 0)
+                    Talk(EMOTE_EXPLO_BARREL_BOOM);
 
                 if (phase == 0)
                 {
@@ -1327,7 +1332,7 @@ class npc_shado_pan_sentinel : public CreatureScript
 
             void Reset() override
             {
-                me->SetFaction(me->GetCreatureTemplate()->faction_A);
+                me->SetFaction(me->GetCreatureTemplate()->faction);
             }
         };
 
@@ -1376,7 +1381,7 @@ struct npc_lorewalker_cho_bashon_summoned : public ScriptedAI
 {
     npc_lorewalker_cho_bashon_summoned(Creature* creature) : ScriptedAI(creature) { }
 
-    uint64 summonerGUID;
+    ObjectGuid summonerGUID;
     uint32 delay;
 
     void IsSummonedBy(Unit* summoner) override
@@ -1449,7 +1454,7 @@ struct npc_relcaimer_zuan_pets : public ScriptedAI
     npc_relcaimer_zuan_pets(Creature* creature) : ScriptedAI(creature) { }
 
     EventMap events;
-    uint64 summonerGUID;
+    ObjectGuid summonerGUID;
     uint32 delay;
     bool HasEnrage;
 
@@ -1478,7 +1483,7 @@ struct npc_relcaimer_zuan_pets : public ScriptedAI
         }
     }
 
-    void EnterCombat(Unit* /*victim*/)
+    void JustEngagedWith(Unit* /*victim*/) override
     {
         if (me->GetEntry() == NPC_RECLAIMER_ZUAN)
         {
@@ -1568,7 +1573,7 @@ struct npc_initiate_chuang_summoned : public ScriptedAI
 {
     npc_initiate_chuang_summoned(Creature* creature) : ScriptedAI(creature), init(me) { }
 
-    uint64 summonerGUID;
+    ObjectGuid summonerGUID;
     uint32 delay, pointMod;
     Movement::MoveSplineInit init;
 
@@ -1704,9 +1709,9 @@ class npc_xuen_celestial_experience : public CreatureScript
         {
             npc_xuen_celestial_experienceAI(Creature* creature) : ScriptedAI(creature) { }
 
-            uint64 summonerGUID;
+            ObjectGuid summonerGUID;
             uint32 delay;
-            std::vector<uint64> cList;
+            std::vector<ObjectGuid> cList;
 
             void IsSummonedBy(Unit* summoner) override
             {
@@ -1912,14 +1917,14 @@ struct celestial_experience_sha : public ScriptedAI
     celestial_experience_sha(Creature* creature) : ScriptedAI(creature) { }
 
     EventMap events;
-    uint64 summonerGUID, victimGUID;
+    ObjectGuid summonerGUID, victimGUID;
 
     void IsSummonedBy(Unit* summoner) override
     {
         me->SetFaction(16);
         me->SetPhaseMask(2, true);
         summonerGUID = summoner->GetGUID();
-        victimGUID = 0;
+        victimGUID = ObjectGuid::Empty;
         me->DespawnOrUnsummon(300 * IN_MILLISECONDS);
     }
 
@@ -1928,7 +1933,7 @@ struct celestial_experience_sha : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*victim*/)
+    void JustEngagedWith(Unit* /*victim*/) override
     {
         events.ScheduleEvent(EVENT_HATED_BLAST, randtime(2s, 3s));
         events.ScheduleEvent(EVENT_SHA_CORRUPTION, 8s);
@@ -2030,7 +2035,7 @@ struct npc_varatus_the_conqueror : public customCreatureAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_INEVITABILITY, randtime(1s + 500ms, 2s + 500ms));
     }
@@ -2136,10 +2141,10 @@ struct npc_kota_kon : public VehicleAI
 {
     npc_kota_kon(Creature* creature) : VehicleAI(creature)
     {
-        guid = 0;
+        guid = ObjectGuid::Empty;
     }
 
-    uint64 guid;
+    ObjectGuid guid;
 
     bool OnGossipSelect(Player* player, uint32 /*sender*/, uint32 /*action*/) override
     {
@@ -2155,7 +2160,7 @@ struct npc_kota_kon : public VehicleAI
         summon->CastSpell(summon, SPELL_HEAVY_HANDED, true);
         summon->SetPhaseMask(2, true);
 
-        if (Player* player = sObjectAccessor->GetPlayer(*me, guid))
+        if (Player* player = ObjectAccessor::GetPlayer(*me, guid))
         {
             player->SetPhaseMask(2, true);
             player->EnterVehicle(summon, 0);
@@ -2183,7 +2188,7 @@ struct npc_korda_torros : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         Talk(SAY_KORDA_TORROS_AGGRO);
 
@@ -2243,7 +2248,7 @@ struct npc_borginn_darkfist : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         Talk(SAY_BORGINN_DARKFIST_AGGRO);
 
@@ -2293,7 +2298,7 @@ struct npc_scritch : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         Talk(SAY_SCRITCH_AGGRO);
 
@@ -2353,7 +2358,7 @@ struct npc_the_yowler : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         Talk(SAY_YOWLER_AGGRO);
 
@@ -2486,7 +2491,7 @@ struct npc_ooking_shaman : public hozen_grind_baseAI
 {
     npc_ooking_shaman(Creature* creature) : hozen_grind_baseAI(creature) { }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_LIGHTNING_BOLT, 1s);
         events.ScheduleEvent(EVENT_EARTH_SHOCK, 6s);
@@ -2517,7 +2522,7 @@ struct npc_silverback_piker : public hozen_grind_baseAI
 {
     npc_silverback_piker(Creature* creature) : hozen_grind_baseAI(creature) { }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_POKE_YOU, 2s + 500ms);
         events.ScheduleEvent(EVENT_SLING_DERK, 4s);

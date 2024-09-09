@@ -218,7 +218,7 @@ public:
             m_uiFrostShockTimer = 6000;
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
             DoCast(me, SPELL_EARTHBIND_TOTEM, false);
         }
@@ -331,7 +331,7 @@ public:
 
         void Reset() override { }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void MoveInLineOfSight(Unit* who) override
 
@@ -393,7 +393,7 @@ public:
           {
               corki->GetMotionMaster()->MovePoint(1, go->GetPositionX()+5, go->GetPositionY(), go->GetPositionZ());
               if (player)
-                  player->KilledMonsterCredit(NPC_CORKI_CREDIT_1, 0);
+                  player->KilledMonsterCredit(NPC_CORKI_CREDIT_1, ObjectGuid::Empty);
           }
       }
 
@@ -403,7 +403,7 @@ public:
           {
               corki->GetMotionMaster()->MovePoint(1, go->GetPositionX()-5, go->GetPositionY(), go->GetPositionZ());
               if (player)
-                  player->KilledMonsterCredit(NPC_CORKI_2, 0);
+                  player->KilledMonsterCredit(NPC_CORKI_2, ObjectGuid::Empty);
           }
       }
 
@@ -413,7 +413,7 @@ public:
           {
               corki->GetMotionMaster()->MovePoint(1, go->GetPositionX()+4, go->GetPositionY(), go->GetPositionZ());
               if (player)
-                  player->KilledMonsterCredit(NPC_CORKI_CREDIT_3, 0);
+                  player->KilledMonsterCredit(NPC_CORKI_CREDIT_3, ObjectGuid::Empty);
           }
       }
       return true;
@@ -547,7 +547,7 @@ public:
             FrostShockTimer = 6000;
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
             DoCast(me, SPELL_KUR_EARTHBIND_TOTEM, false);
         }
@@ -685,7 +685,7 @@ class go_warmaul_prison : public GameObjectScript
 
             if (Creature* prisoner = go->FindNearestCreature(NPC_MAGHAR_PRISONER, 5.0f))
             {
-                player->KilledMonsterCredit(NPC_MAGHAR_PRISONER, 0);
+                player->KilledMonsterCredit(NPC_MAGHAR_PRISONER, ObjectGuid::Empty);
 
                 prisoner->AI()->Talk(SAY_FREE, player);
                 prisoner->DespawnOrUnsummon(6000);

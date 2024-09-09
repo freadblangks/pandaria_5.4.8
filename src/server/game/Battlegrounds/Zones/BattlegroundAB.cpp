@@ -228,12 +228,12 @@ void BattlegroundAB::AddPlayer(Player* player)
         player->StartCriteria(CRITERIA_START_TYPE_EVENT, AB_EVENT_START_BATTLE, (TimeValue::Now() - m_doorOpeningTime).ToMilliseconds());
 }
 
-void BattlegroundAB::RemovePlayer(Player* player, uint64 guid, uint32 team)
+void BattlegroundAB::RemovePlayer(Player* player, ObjectGuid guid, uint32 team)
 {
     Battleground::RemovePlayer(player, guid, team);
 }
 
-void BattlegroundAB::HandleAreaTrigger(Player* player, uint32 trigger)
+void BattlegroundAB::HandleAreaTrigger(Player* player, uint32 trigger, bool entered)
 {
     if (GetStatus() != STATUS_IN_PROGRESS)
         return;
@@ -262,7 +262,7 @@ void BattlegroundAB::HandleAreaTrigger(Player* player, uint32 trigger)
         case 4674:                                          // Unk3
             //break;
         default:
-            Battleground::HandleAreaTrigger(player, trigger);
+            Battleground::HandleAreaTrigger(player, trigger, entered);
             break;
     }
 }

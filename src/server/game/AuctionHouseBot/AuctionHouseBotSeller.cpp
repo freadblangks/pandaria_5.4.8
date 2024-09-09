@@ -856,7 +856,7 @@ void AuctionBotSeller::AddNewAuctions(SellerConfiguration& config)
     AllItemsArray allItems(MAX_AUCTION_QUALITY, std::vector<uint32>(MAX_ITEM_CLASS));
     // Main loop
     // getRandomArray will give what categories of items should be added (return true if there is at least 1 items missed)
-    SQLTransaction trans = CharacterDatabase.BeginTransaction();
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
     while (GetItemsToSell(config, itemsToSell, allItems) && items > 0)
     {
         --items;
@@ -919,12 +919,11 @@ void AuctionBotSeller::AddNewAuctions(SellerConfiguration& config)
         AuctionEntry* auctionEntry = new AuctionEntry();
         auctionEntry->Id = sObjectMgr->GenerateAuctionID();
         auctionEntry->owner = sAuctionBotConfig->GetRandChar();
-        auctionEntry->itemGUIDLow = item->GetGUIDLow();
+        auctionEntry->itemGUIDLow = item->GetGUID().GetCounter();
         auctionEntry->itemEntry = item->GetEntry();
         auctionEntry->startbid = bidPrice;
         auctionEntry->buyout = buyoutPrice;
-        auctionEntry->auctioneer = auctionEntry->owner; // to be removed
-        //auctionEntry->houseId = houseid;
+        auctionEntry->houseId = houseid;
         auctionEntry->bidder = 0;
         auctionEntry->bid = 0;
         auctionEntry->deposit = sAuctionMgr->GetAuctionDeposit(ahEntry, etime, item, stackCount);

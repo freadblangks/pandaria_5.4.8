@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -59,7 +59,7 @@ struct npc_draenei_survivor : public ScriptedAI
 
     void Reset() override
     {
-        caster = 0;
+        caster = ObjectGuid::Empty;
         sayThanksTimer = 0;
         runAwayTimer = 0;
         despawnTimer = 0;
@@ -72,7 +72,7 @@ struct npc_draenei_survivor : public ScriptedAI
         me->SetStandState(UNIT_STAND_STATE_SLEEP);
     }
 
-    void EnterCombat(Unit* /*who*/) override { }
+    void JustEngagedWith(Unit* /*who*/) override { }
 
     void MoveInLineOfSight(Unit* who) override
     {
@@ -153,7 +153,7 @@ struct npc_draenei_survivor : public ScriptedAI
     }
 
 private:
-    uint64 caster;
+    ObjectGuid caster;
     uint32 sayHelpTimer;
     uint32 sayThanksTimer;
     uint32 runAwayTimer;
@@ -241,7 +241,7 @@ public:
             IsTreeEvent = false;
         }
 
-        void EnterCombat(Unit* who) override
+        void JustEngagedWith(Unit* who) override
         {
             Talk(ATTACK_YELL, who);
         }
@@ -309,7 +309,7 @@ public:
             }
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void MoveInLineOfSight(Unit* /*who*/) override { }
 
@@ -384,7 +384,7 @@ public:
             }
         }
 
-        void EnterCombat(Unit* who) override
+        void JustEngagedWith(Unit* who) override
         {
             Talk(SAY_AGGRO, who);
         }
@@ -434,7 +434,7 @@ public:
     {
         npc_geezleAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 SparkGUID;
+        ObjectGuid SparkGUID;
 
         uint8 Step;
         uint32 SayTimer;
@@ -443,12 +443,12 @@ public:
 
         void Reset() override
         {
-            SparkGUID = 0;
+            SparkGUID = ObjectGuid::Empty;
             Step = 0;
             StartEvent();
         }
 
-        void EnterCombat(Unit* /*who*/)override { }
+        void JustEngagedWith(Unit* /*who*/)override { }
 
         void StartEvent()
         {
@@ -526,7 +526,7 @@ public:
 
             for (std::list<Player*>::const_iterator itr = players.begin(); itr != players.end(); ++itr)
                 if ((*itr)->GetQuestStatus(QUEST_TREES_COMPANY) == QUEST_STATUS_INCOMPLETE && (*itr)->HasAura(SPELL_TREE_DISGUISE))
-                    (*itr)->KilledMonsterCredit(NPC_SPARK, 0);
+                    (*itr)->KilledMonsterCredit(NPC_SPARK, ObjectGuid::Empty);
         }
 
         void DespawnNagaFlag(bool despawn)
@@ -688,8 +688,7 @@ class npc_stillpine_capitive : public CreatureScript
                     Talk(CAPITIVE_SAY, owner);
                     _player = owner;
                 }
-                Position pos;
-                me->GetNearPosition(pos, 3.0f, 0.0f);
+                Position pos = me->GetNearPosition(3.0f, 0.0f);
                 me->GetMotionMaster()->MovePoint(POINT_INIT, pos);
             }
 

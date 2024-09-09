@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -206,7 +206,7 @@ class boss_lord_rhyolith : public CreatureScript
                     BossAI::JustSummoned(summon);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
                 
@@ -583,7 +583,7 @@ class npc_lord_rhyolith_rhyolith : public CreatureScript
                 me->DespawnOrUnsummon();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_CONCLUSIVE_STOMP, 10000);
 
@@ -594,7 +594,7 @@ class npc_lord_rhyolith_rhyolith : public CreatureScript
             {
                 if (instance)
                 {
-                    if (Creature* pRhyolith = ObjectAccessor::GetCreature(*me, instance->GetData64(DATA_RHYOLITH)))
+                    if (Creature* pRhyolith = ObjectAccessor::GetCreature(*me, instance->GetGuidData(DATA_RHYOLITH)))
                         killer->Kill(pRhyolith);
                     instance->SetBossState(DATA_RHYOLITH, DONE);
                     instance->DoRemoveAurasDueToSpellOnPlayers(SPELL_BALANCE_BAR);
@@ -673,7 +673,7 @@ class npc_lord_rhyolith_right_foot : public CreatureScript
                 hitsTimer = 1000;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (Creature* pRhyolith = me->FindNearestCreature(NPC_RHYOLITH, 300.0f))
                     DoZoneInCombat(pRhyolith);
@@ -774,7 +774,7 @@ class npc_lord_rhyolith_left_foot : public CreatureScript
                 hitsTimer = 1000;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (Creature* pRhyolith = me->FindNearestCreature(NPC_RHYOLITH, 300.0f))
                     DoZoneInCombat(pRhyolith);
@@ -869,7 +869,7 @@ class npc_lord_rhyolith_volcano : public CreatureScript
                 events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoCast(me, SPELL_VOLCANO_SMOKE, true);
                 events.ScheduleEvent(EVENT_CHECK_RHYOLITH, 3000);       
@@ -969,7 +969,7 @@ class npc_lord_rhyolith_crater : public CreatureScript
                 events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoCast(me, SPELL_EXPLODE, true);
                 DoCast(me, SPELL_MAGMA, true);
@@ -1032,7 +1032,7 @@ class npc_lord_rhyolith_liquid_obsidian : public CreatureScript
                 events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_START_MOVE, 2000);
             }
@@ -1092,7 +1092,7 @@ class npc_lord_rhyolith_spark_of_rhyolith : public CreatureScript
                 events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_START_MOVE, 2000);
             }
@@ -1155,7 +1155,7 @@ class npc_lord_rhyolith_fragment_of_rhyolith : public CreatureScript
                     pRhyolith->AI()->DoAction(ACTION_REMOVE_MOLTEN_ARMOR);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_START_MOVE, 2000);
             }
@@ -1291,8 +1291,7 @@ class spell_lord_rhyolith_magma_flow : public SpellScriptLoader
 
                 for (float a = 0; a <= 2 * M_PI; a += M_PI / 2)
                 {
-                    Position pos;
-                    GetCaster()->GetNearPosition(pos, 1.0f * count, a + frand(-0.05f, 0.05f));
+                    Position pos = GetCaster()->GetNearPosition(1.0f * count, a + frand(-0.05f, 0.05f));
                     GetCaster()->CastSpell(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), SPELL_MAGMA_FLOW_AREA, true);
                 }
             }

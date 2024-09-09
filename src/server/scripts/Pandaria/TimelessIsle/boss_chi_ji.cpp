@@ -112,7 +112,7 @@ class boss_chi_ji : public CreatureScript
                 HandleDoor(me, GO_CELESTIAL_DOOR, true);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 UpdateHealth(me);
                 me->SetWalk(false);
@@ -351,7 +351,7 @@ struct npc_child_of_chi_ji : public ScriptedAI
 
     TaskScheduler scheduler;
     float x, y;
-    uint64 summonerGUID;
+    ObjectGuid summonerGUID;
 
     void IsSummonedBy(Unit* summoner) override
     {

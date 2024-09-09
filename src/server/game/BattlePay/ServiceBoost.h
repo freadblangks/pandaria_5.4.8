@@ -18,8 +18,6 @@
 #ifndef CHARACTER_BOOST_H
 #define CHARACTER_BOOST_H
 
-#define MAX_SPECIALIZATIONS     4
-
 enum CharBoostMisc
 {
     // Items
@@ -63,9 +61,9 @@ float const startPosition[2][4] =
 
 struct CharacterBoostData
 {
-    CharacterBoostData() : charGuid(0), action(0), specialization(0), allianceFaction(false) { }
+    CharacterBoostData() : charGuid(ObjectGuid::Empty), action(0), specialization(0), allianceFaction(false) { }
 
-    uint64 charGuid;
+    ObjectGuid charGuid;
     uint32 action;
     uint32 specialization;
     bool allianceFaction;
@@ -94,27 +92,27 @@ class CharacterBooster
         CharacterBooster(WorldSession* session);
 
         uint32 GetCurrentAction() const { return m_charBoostInfo.action; }
-        uint32 GetGuidLow() const { return GUID_LOPART(m_charBoostInfo.charGuid); }
+        ObjectGuid::LowType GetGuidLow() const { return m_charBoostInfo.charGuid.GetCounter(); }
         void HandleCharacterBoost();
-        bool IsBoosting(uint32 lowGuid) const { return m_boosting && (GUID_LOPART(m_charBoostInfo.charGuid) == lowGuid); }
+        bool IsBoosting(ObjectGuid::LowType lowGuid) const { return m_boosting && (m_charBoostInfo.charGuid.GetCounter() == lowGuid); }
         void SetBoostedCharInfo(ObjectGuid guid, uint32 action, uint32 specialization, bool allianceFaction);
         void Update(uint32 diff);
         void SendCharBoostPacket(PreparedItemsMap items) const;
 
     private:
         void _GetCharBoostItems(PreparedItemsMap& itemsToMail, PreparedItemsMap& itemsToEquip) const;
-        std::string _EquipItems(SQLTransaction& trans, PreparedItemsMap itemsToEquip) const;
+        std::string _EquipItems(CharacterDatabaseTransaction trans, PreparedItemsMap itemsToEquip) const;
         void _GetBoostedCharacterData(uint8& raceId, uint8& classId, uint8& level) const;
         void _HandleCharacterBoost() const;
-        void _LearnSpells(SQLTransaction& trans) const;
-        void _PrepareInventory(SQLTransaction& trans) const;
-        uint32 _PrepareMail(SQLTransaction& trans, std::string const subject, std::string const body) const;
-        std::string _SetSpecialization(SQLTransaction& trans, uint8 const classId) const;
-        void _SaveBoostedChar(SQLTransaction& trans, std::string items, uint8 const raceId, uint8 const classId) const;
-        void _SendMail(SQLTransaction& trans, PreparedItemsMap items) const;
-        void _LearnVeteranBonuses(SQLTransaction& trans, uint8 const classId) const;
-        void LearnNonExistedSpell(SQLTransaction& trans, uint32 spell) const;
-        void LearnNonExistedSkill(SQLTransaction& trans, uint32 skill) const;
+        void _LearnSpells(CharacterDatabaseTransaction trans) const;
+        void _PrepareInventory(CharacterDatabaseTransaction trans) const;
+        uint32 _PrepareMail(CharacterDatabaseTransaction trans, std::string const subject, std::string const body) const;
+        std::string _SetSpecialization(CharacterDatabaseTransaction trans, uint8 const classId) const;
+        void _SaveBoostedChar(CharacterDatabaseTransaction trans, std::string items, uint8 const raceId, uint8 const classId) const;
+        void _SendMail(CharacterDatabaseTransaction trans, PreparedItemsMap items) const;
+        void _LearnVeteranBonuses(CharacterDatabaseTransaction trans, uint8 const classId) const;
+        void LearnNonExistedSpell(CharacterDatabaseTransaction trans, uint32 spell) const;
+        void LearnNonExistedSkill(CharacterDatabaseTransaction trans, uint32 skill) const;
         WorldSession* GetSession() const { return m_session; }
 
         CharacterBoostData m_charBoostInfo;

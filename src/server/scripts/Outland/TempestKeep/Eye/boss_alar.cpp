@@ -133,7 +133,7 @@ class boss_alar : public CreatureScript
                 me->setActive(false);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (instance)
                     instance->SetData(DATA_ALAREVENT, IN_PROGRESS);
@@ -180,7 +180,7 @@ class boss_alar : public CreatureScript
                         me->RemoveAllAuras();
                         me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
                         me->AttackStop();
-                        me->SetTarget(0);
+                        me->SetTarget(ObjectGuid::Empty);
                         me->SetSpeed(MOVE_RUN, 5.0f);
                         me->GetMotionMaster()->Clear();
                         me->GetMotionMaster()->MovePoint(0, waypoint[5][0], waypoint[5][1], waypoint[5][2]);
@@ -257,12 +257,12 @@ class boss_alar : public CreatureScript
                                 return;
                             case WE_DIE:
                                 ForceMove = false;
-                                me->SetUInt32Value(UNIT_FIELD_ANIM_TIER, UNIT_STAND_STATE_DEAD);
+                                me->SetUInt32Value(UNIT_FIELD_BYTES_1, UNIT_STAND_STATE_DEAD);
                                 WaitTimer = 5000;
                                 WaitEvent = WE_REVIVE;
                                 return;
                             case WE_REVIVE:
-                                me->SetUInt32Value(UNIT_FIELD_ANIM_TIER, UNIT_STAND_STATE_STAND);
+                                me->SetUInt32Value(UNIT_FIELD_BYTES_1, UNIT_STAND_STATE_STAND);
                                 me->SetFullHealth();
                                 me->SetSpeed(MOVE_RUN, DefaultMoveSpeedRate);
                                 me->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE);
@@ -476,7 +476,7 @@ class npc_ember_of_alar : public CreatureScript
                 toDie = false;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat();
             }
@@ -496,7 +496,7 @@ class npc_ember_of_alar : public CreatureScript
                     me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
                     if (instance && instance->GetData(DATA_ALAREVENT) == 2)
                     {
-                        if (Unit* Alar = Unit::GetUnit(*me, instance->GetData64(DATA_ALAR)))
+                        if (Unit* Alar = Unit::GetUnit(*me, instance->GetGuidData(DATA_ALAR)))
                         {
                             int32 AlarHealth = int32(Alar->GetHealth()) - int32(Alar->CountPctFromMaxHealth(3));
                             if (AlarHealth > 0)
@@ -540,7 +540,7 @@ class npc_flame_patch_alar : public CreatureScript
         {
             npc_flame_patch_alarAI(Creature* creature) : ScriptedAI(creature) { }
             void Reset() override { }
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
             void AttackStart(Unit* /*who*/) override { }
             void MoveInLineOfSight(Unit* /*who*/) override { }
 

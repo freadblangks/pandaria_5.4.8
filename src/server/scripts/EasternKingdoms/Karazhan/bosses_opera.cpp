@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -175,7 +175,7 @@ class boss_dorothee : public CreatureScript
                 TitoDied = false;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->setActive(true);
                 Talk(SAY_DOROTHEE_AGGRO);
@@ -268,16 +268,16 @@ class npc_tito : public CreatureScript
         {
             npc_titoAI(Creature* creature) : ScriptedAI(creature) { }
 
-            uint64 DorotheeGUID;
+            ObjectGuid DorotheeGUID;
             uint32 YipTimer;
 
             void Reset() override
             {
-                DorotheeGUID = 0;
+                DorotheeGUID = ObjectGuid::Empty;
                 YipTimer = 10000;
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void JustDied(Unit* /*killer*/) override
             {
@@ -366,7 +366,7 @@ class boss_strawman : public CreatureScript
                 ScriptedAI::MoveInLineOfSight(who);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->setActive(true);
                 Talk(SAY_STRAWMAN_AGGRO);
@@ -473,7 +473,7 @@ class boss_tinhead : public CreatureScript
                 RustCount   = 0;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->setActive(true);
                 Talk(SAY_TINHEAD_AGGRO);
@@ -601,7 +601,7 @@ class boss_roar : public CreatureScript
                 ScriptedAI::AttackStart(who);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->setActive(true);
                 Talk(SAY_ROAR_AGGRO);
@@ -702,7 +702,7 @@ class boss_crone : public CreatureScript
                 me->DespawnOrUnsummon();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->setActive(true);
                 Talk(SAY_CRONE_AGGRO);
@@ -718,10 +718,10 @@ class boss_crone : public CreatureScript
                 if (instance)
                 {
                     instance->SetData(TYPE_OPERA, DONE);
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_STAGEDOORLEFT), true);
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_STAGEDOORRIGHT), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_STAGEDOORLEFT), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_STAGEDOORRIGHT), true);
 
-                    if (GameObject* sideEntrance = sObjectAccessor->GetGameObject(*me, instance->GetData64(DATA_GO_SIDE_ENTRANCE_DOOR)))
+                    if (GameObject* sideEntrance = ObjectAccessor::GetGameObject(*me, instance->GetGuidData(DATA_GO_SIDE_ENTRANCE_DOOR)))
                         sideEntrance->RemoveFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_LOCKED);
                 }
             }
@@ -773,7 +773,7 @@ class npc_cyclone : public CreatureScript
                 MoveTimer = 1000;
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void MoveInLineOfSight(Unit* /*who*/) override { }
 
@@ -784,8 +784,7 @@ class npc_cyclone : public CreatureScript
 
                 if (MoveTimer <= diff)
                 {
-                    Position pos;
-                    me->GetRandomNearPosition(pos, 10);
+                    Position pos = me->GetRandomNearPosition(10);
                     me->GetMotionMaster()->MovePoint(0, pos);
                     MoveTimer = urand(5000,8000);
                 } else MoveTimer -= diff;
@@ -864,7 +863,7 @@ class boss_bigbadwolf : public CreatureScript
             uint32 FearTimer;
             uint32 SwipeTimer;
 
-            uint64 HoodGUID;
+            ObjectGuid HoodGUID;
             float TempThreat;
 
             bool IsChasing;
@@ -875,13 +874,13 @@ class boss_bigbadwolf : public CreatureScript
                 FearTimer  = 25000 + rand() % 10000;
                 SwipeTimer = 5000;
 
-                HoodGUID   = 0;
+                HoodGUID = ObjectGuid::Empty;
                 TempThreat = 0;
 
                 IsChasing  = false;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->setActive(true);
                 Talk(SAY_WOLF_AGGRO);
@@ -902,10 +901,10 @@ class boss_bigbadwolf : public CreatureScript
                 if (instance)
                 {
                     instance->SetData(TYPE_OPERA, DONE);
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_STAGEDOORLEFT), true);
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_STAGEDOORRIGHT), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_STAGEDOORLEFT), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_STAGEDOORRIGHT), true);
 
-                    if (GameObject* sideEntrance = sObjectAccessor->GetGameObject(*me, instance->GetData64(DATA_GO_SIDE_ENTRANCE_DOOR)))
+                    if (GameObject* sideEntrance = ObjectAccessor::GetGameObject(*me, instance->GetGuidData(DATA_GO_SIDE_ENTRANCE_DOOR)))
                         sideEntrance->RemoveFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_LOCKED);
                 }
             }
@@ -940,7 +939,7 @@ class boss_bigbadwolf : public CreatureScript
 
                         if (Unit* target = Unit::GetUnit(*me, HoodGUID))
                         {
-                            HoodGUID = 0;
+                            HoodGUID = ObjectGuid::Empty;
                             if (DoGetThreat(target))
                                 DoModifyThreatPercent(target, -100);
                             me->AddThreat(target, TempThreat);
@@ -1065,7 +1064,7 @@ class boss_julianne : public CreatureScript
 
             uint32 AggroYellTimer;
 
-            uint64 RomuloGUID;
+            ObjectGuid RomuloGUID;
 
             uint32 Phase;
 
@@ -1084,7 +1083,7 @@ class boss_julianne : public CreatureScript
 
             void Reset() override
             {
-                RomuloGUID = 0;
+                RomuloGUID = ObjectGuid::Empty;
                 Phase = PHASE_JULIANNE;
 
                 BlindingPassionTimer = 30000;
@@ -1105,7 +1104,7 @@ class boss_julianne : public CreatureScript
                 RomuloDead = false;
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->setActive(true);
             }
@@ -1153,9 +1152,9 @@ class boss_julianne : public CreatureScript
                 if (instance)
                 {
                     instance->SetData(TYPE_OPERA, DONE);
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_STAGEDOORLEFT), true);
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_STAGEDOORRIGHT), true);
-                    if (GameObject* sideEntrance = sObjectAccessor->GetGameObject(*me, instance->GetData64(DATA_GO_SIDE_ENTRANCE_DOOR)))
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_STAGEDOORLEFT), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_STAGEDOORRIGHT), true);
+                    if (GameObject* sideEntrance = ObjectAccessor::GetGameObject(*me, instance->GetGuidData(DATA_GO_SIDE_ENTRANCE_DOOR)))
                         sideEntrance->RemoveFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_LOCKED);
                 }
             }
@@ -1189,7 +1188,7 @@ class boss_romulo : public CreatureScript
 
             InstanceScript* instance;
 
-            uint64 JulianneGUID;
+            ObjectGuid JulianneGUID;
             uint32 Phase;
 
             uint32 AggroYellTimer;
@@ -1204,7 +1203,7 @@ class boss_romulo : public CreatureScript
 
             void Reset() override
             {
-                JulianneGUID = 0;
+                JulianneGUID = ObjectGuid::Empty;
                 Phase = PHASE_ROMULO;
 
                 BackwardLungeTimer = 15000;
@@ -1276,7 +1275,7 @@ class boss_romulo : public CreatureScript
                 TC_LOG_ERROR("scripts", "TSCR: boss_romuloAI: DamageTaken reach end of code, that should not happen.");
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 me->setActive(true);
                 Talk(SAY_ROMULO_AGGRO);
@@ -1307,10 +1306,10 @@ class boss_romulo : public CreatureScript
                 if (instance)
                 {
                     instance->SetData(TYPE_OPERA, DONE);
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_STAGEDOORLEFT), true);
-                    instance->HandleGameObject(instance->GetData64(DATA_GO_STAGEDOORRIGHT), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_STAGEDOORLEFT), true);
+                    instance->HandleGameObject(instance->GetGuidData(DATA_GO_STAGEDOORRIGHT), true);
 
-                    if (GameObject* sideEntrance = sObjectAccessor->GetGameObject(*me, instance->GetData64(DATA_GO_SIDE_ENTRANCE_DOOR)))
+                    if (GameObject* sideEntrance = ObjectAccessor::GetGameObject(*me, instance->GetGuidData(DATA_GO_SIDE_ENTRANCE_DOOR)))
                         sideEntrance->RemoveFlag(GAMEOBJECT_FIELD_FLAGS, GO_FLAG_LOCKED);
                 }
             }

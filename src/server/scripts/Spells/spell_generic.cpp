@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -41,6 +41,7 @@
 #include "SpellHistory.h"
 #include "Vehicle.h"
 #include "CreatureTextMgr.h"
+#include "Random.h"
 
 class spell_gen_absorb0_hitlimit1 : public AuraScript
 {
@@ -234,7 +235,7 @@ class spell_gen_animal_blood : public AuraScript
     void OnApply(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
     {
         // Remove all auras with spell id 46221, except the one currently being applied
-        while (Aura* aur = GetUnitOwner()->GetOwnedAura(SPELL_ANIMAL_BLOOD, 0, 0, 0, GetAura()))
+        while (Aura* aur = GetUnitOwner()->GetOwnedAura(SPELL_ANIMAL_BLOOD, ObjectGuid::Empty, ObjectGuid::Empty, 0, GetAura()))
             GetUnitOwner()->RemoveOwnedAura(aur);
     }
 
@@ -261,7 +262,7 @@ class spell_spawn_blood_pool : public SpellScript
     {
         Unit* caster = GetCaster();
         LiquidData liquidStatus;
-        ZLiquidStatus status = caster->GetMap()->getLiquidStatus(caster->GetPositionX(), caster->GetPositionY(), caster->GetPositionZ(), MAP_ALL_LIQUIDS, &liquidStatus);
+        ZLiquidStatus status = caster->GetMap()->GetLiquidStatus(caster->GetPhaseMask(), caster->GetPositionX(), caster->GetPositionY(), caster->GetPositionZ(), MAP_ALL_LIQUIDS, &liquidStatus);
 
         Position summonPos = caster->GetPosition();
         summonPos.m_positionZ = liquidStatus.level;
@@ -442,7 +443,7 @@ class spell_gen_bonked : public SpellScript
         }
     }
 
-    void Register()
+    void Register() override
     {
         OnEffectHitTarget += SpellEffectFn(spell_gen_bonked::HandleScript, EFFECT_1, SPELL_EFFECT_SCRIPT_EFFECT);
     }
@@ -924,7 +925,7 @@ class spell_gen_creature_permanent_feign_death : public SpellScriptLoader
             {
                 Unit* target = GetTarget();
                 target->SetFlag(OBJECT_FIELD_DYNAMIC_FLAGS, UNIT_DYNFLAG_DEAD);
-                target->SetFlag(UNIT_FIELD_FLAGS2, UNIT_FLAG2_FEIGN_DEATH);
+                target->SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_FEIGN_DEATH);
 
                 if (target->GetTypeId() == TYPEID_UNIT)
                     target->ToCreature()->SetReactState(REACT_PASSIVE);
@@ -3006,7 +3007,7 @@ class spell_gen_upper_deck_create_foam_sword : public SpellScript
         }
     }
 
-    void Register()
+    void Register() override
     {
         OnEffectHitTarget += SpellEffectFn(spell_gen_upper_deck_create_foam_sword::HandleScript, EFFECT_0, SPELL_EFFECT_SCRIPT_EFFECT);
     }
@@ -3104,7 +3105,7 @@ class spell_gen_vehicle_scaling : public SpellScriptLoader
                 }
             }
 
-            void Register()
+            void Register() override
             {
                 DoEffectCalcAmount += AuraEffectCalcAmountFn(spell_gen_vehicle_scaling_AuraScript::CalculateAmount, EFFECT_ALL, SPELL_AURA_ANY);
                 AfterEffectRemove += AuraEffectRemoveFn(spell_gen_vehicle_scaling_AuraScript::HandleAfterRemove, EFFECT_ALL, SPELL_AURA_ANY, AURA_EFFECT_HANDLE_REAL);
@@ -3252,7 +3253,7 @@ class spell_gen_survey : public SpellScriptLoader
                         go->SetSpellId(0);
 
                     player->RemoveGameObject(go, true);
-                    player->m_ObjectSlot[1] = 0;
+                    player->m_ObjectSlot[1] = ObjectGuid::Empty;
                 }
 
                 ResearchDigsite* digsite = player->GetCurrentResearchDigsite();
@@ -3278,7 +3279,6 @@ class spell_gen_survey : public SpellScriptLoader
 
                     go = player->SummonGameObject(find->goEntry, find->x, find->y, find->z, 0, { }, 30); // TODO: verify despawn time
 
-                    player->CreditprojectDailyQuest(180024); // project Daily Quest Credit - Surveys
                 }
                 else
                 {
@@ -3290,8 +3290,7 @@ class spell_gen_survey : public SpellScriptLoader
                     else // more than 80yd (red)
                         goEntry = GO_SURVEY_TOOL_RED;
 
-                    Position pos;
-                    player->GetNearPosition(pos, 3.0f, M_PI / 4);
+                    Position pos = player->GetNearPosition(3.0f, M_PI / 4);
                     float z = player->GetMap()->GetHeight(pos.m_positionX, pos.m_positionY, pos.m_positionZ + 2.0f);
                     float ang = pos.GetAngle(find->x, find->y);
                     go = player->SummonGameObject(goEntry, pos.m_positionX, pos.m_positionY, z, ang, { }, 30); // TODO: verify despawn time
@@ -3332,8 +3331,8 @@ class spell_gen_searching_for_artifacts : public SpellScriptLoader
             {
                 if (Player* player = GetCaster()->ToPlayer())
                     if (GameObject* go = GetHitGObj())
-                        if (!go->IsInSkillupList(player->GetGUIDLow()) && player->UpdateCraftSkill(GetSpellInfo()->Id))
-                            go->AddToSkillupList(player->GetGUIDLow());
+                        if (!go->IsInSkillupList(player->GetGUID().GetCounter()) && player->UpdateCraftSkill(GetSpellInfo()->Id))
+                            go->AddToSkillupList(player->GetGUID().GetCounter());
             }
 
             void Register() override
@@ -3385,7 +3384,7 @@ class spell_gen_debug_move : public SpellScript
         return SPELL_CAST_OK;
     }
 
-    void Register()
+    void Register() override
     {
         OnCheckCast += SpellCheckCastFn(spell_gen_debug_move::CheckCast);
     }
@@ -3935,7 +3934,7 @@ class spell_gen_noodle_cart_wave : public SpellScript
         size_t operator()(WorldPacket* data, LocaleConstant locale) const
         {
             std::string text = sObjectMgr->GetTrinityString(m_textId, locale);
-            return ChatHandler::BuildChatPacket(*data, CHAT_MSG_MONSTER_SAY, LANG_UNIVERSAL, m_source->GetGUID(), m_target ? m_target->GetGUID() : 0, text, 0,
+            return ChatHandler::BuildChatPacket(*data, CHAT_MSG_MONSTER_SAY, LANG_UNIVERSAL, m_source->GetGUID(), m_target ? m_target->GetGUID() : ObjectGuid::Empty, text, 0,
                 m_source->GetNameForLocaleIdx(locale), m_target ? m_target->GetNameForLocaleIdx(locale) : "");
         }
 
@@ -4115,7 +4114,7 @@ class spell_gen_shadowmeld : public SpellScript
             caster->CombatStop();
     }
 
-    void Register()
+    void Register() override
     {
         OnEffectHitTarget += SpellEffectFn(spell_gen_shadowmeld::HandleHit, EFFECT_1, SPELL_EFFECT_DUMMY);
     }
@@ -4148,7 +4147,7 @@ class spell_gen_free_action_potion : public SpellScript
         }
     }
 
-    void Register()
+    void Register() override
     {
         AfterHit += SpellHitFn(spell_gen_free_action_potion::HandleAfterHit);
     }
@@ -4178,7 +4177,7 @@ class spell_gen_elixir_of_wandering_spirits : public SpellScript
         caster->CastSpell(caster, Trinity::Containers::SelectRandomContainerElement(wanderingSpiritsAuras), true);
     }
 
-    void Register()
+    void Register() override
     {
         OnEffectHitTarget += SpellEffectFn(spell_gen_elixir_of_wandering_spirits::HandleDummy, EFFECT_0, SPELL_EFFECT_DUMMY);
     }
@@ -4338,7 +4337,10 @@ class spell_gen_flesh_to_stone : public AuraScript
     {
         if (Unit* owner = GetUnitOwner())
             if (CreatureTemplate const* creatureTemplate = sObjectMgr->GetCreatureTemplate(aurEff->GetMiscValue()))
-                owner->SetDisplayId(creatureTemplate->Modelid2);
+            {
+                CreatureModel const* model2 = creatureTemplate->GetModelByIdx(1);
+                owner->SetDisplayId(model2->CreatureDisplayID);
+            }
     }
 
     void HandleRemoveEffect(AuraEffect const* /*aurEff*/, AuraEffectHandleModes /*mode*/)
@@ -4422,7 +4424,7 @@ class spell_gen_portal_to_isle_of_thunder : public SpellScript
             }
             else
             {
-                TC_LOG_ERROR("shit", "spell_gen_portal_to_isle_of_thunder: Player %u, team %u, spell %u.", player->GetGUIDLow(), player->GetTeam(), GetSpellInfo()->Id);
+                TC_LOG_ERROR("shit", "spell_gen_portal_to_isle_of_thunder: Player %u, team %u, spell %u.", player->GetGUID().GetCounter(), player->GetTeam(), GetSpellInfo()->Id);
                 return;
             }
             dest._position.m_mapId = 1064;

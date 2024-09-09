@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -321,11 +321,11 @@ public:
 
         uint32 _delayTimer;
 
-        uint64 _firstPriestessGUID;
-        uint64 _secondPriestessGUID;
-        uint64 _guardEluneGUID;
-        uint64 _voiceEluneGUID;
-        uint64 _altarGUID;
+        ObjectGuid _firstPriestessGUID;
+        ObjectGuid _secondPriestessGUID;
+        ObjectGuid _guardEluneGUID;
+        ObjectGuid _voiceEluneGUID;
+        ObjectGuid _altarGUID;
 
         void Reset() override
         {
@@ -371,12 +371,12 @@ public:
         void DoSummonPriestess()
         {
             // Summon 2 Elune priestess and make each of them move to a different spot
-            if (Creature* priestess = me->SummonCreature(NPC_PRIESTESS_ELUNE, wingThicketLocations[0].m_positionX, wingThicketLocations[0].m_positionY, wingThicketLocations[0].m_positionZ, wingThicketLocations[0].m_orientation, TEMPSUMMON_CORPSE_DESPAWN, 0))
+            if (Creature* priestess = me->SummonCreature(NPC_PRIESTESS_ELUNE, wingThicketLocations[0].m_positionX, wingThicketLocations[0].m_positionY, wingThicketLocations[0].m_positionZ, wingThicketLocations[0].GetOrientation(), TEMPSUMMON_CORPSE_DESPAWN, 0))
             {
                 priestess->GetMotionMaster()->MovePoint(0, wingThicketLocations[3].m_positionX, wingThicketLocations[3].m_positionY, wingThicketLocations[3].m_positionZ);
                 _firstPriestessGUID = priestess->GetGUID();
             }
-            if (Creature* priestess = me->SummonCreature(NPC_PRIESTESS_ELUNE, wingThicketLocations[1].m_positionX, wingThicketLocations[1].m_positionY, wingThicketLocations[1].m_positionZ, wingThicketLocations[1].m_orientation, TEMPSUMMON_CORPSE_DESPAWN, 0))
+            if (Creature* priestess = me->SummonCreature(NPC_PRIESTESS_ELUNE, wingThicketLocations[1].m_positionX, wingThicketLocations[1].m_positionY, wingThicketLocations[1].m_positionZ, wingThicketLocations[1].GetOrientation(), TEMPSUMMON_CORPSE_DESPAWN, 0))
             {
                 // Left priestess should have a distinct move point because she is the one who starts the dialogue at point reach
                 priestess->GetMotionMaster()->MovePoint(1, wingThicketLocations[4].m_positionX, wingThicketLocations[4].m_positionY, wingThicketLocations[4].m_positionZ);
@@ -445,7 +445,7 @@ public:
             }
         }
 
-        void JustDidDialogueStep(int32 entry)
+        void JustDidDialogueStep(int32 entry) override
         {
             switch (entry)
             {
@@ -474,7 +474,7 @@ public:
                     break;
                 case SAY_PRIESTESS_ALTAR_13:
                     // summon the Guardian of Elune
-                    if (Creature* guard = me->SummonCreature(NPC_GUARDIAN_ELUNE, wingThicketLocations[2].m_positionX, wingThicketLocations[2].m_positionY, wingThicketLocations[2].m_positionZ, wingThicketLocations[2].m_orientation, TEMPSUMMON_CORPSE_DESPAWN, 0))
+                    if (Creature* guard = me->SummonCreature(NPC_GUARDIAN_ELUNE, wingThicketLocations[2].m_positionX, wingThicketLocations[2].m_positionY, wingThicketLocations[2].m_positionZ, wingThicketLocations[2].GetOrientation(), TEMPSUMMON_CORPSE_DESPAWN, 0))
                     {
                         guard->GetMotionMaster()->MovePoint(0, wingThicketLocations[5].m_positionX, wingThicketLocations[5].m_positionY, wingThicketLocations[5].m_positionZ);
                         _guardEluneGUID = guard->GetGUID();
@@ -544,7 +544,7 @@ public:
             }
         }
 
-        Creature* GetSpeakerByEntry(int32 entry)
+        Creature* GetSpeakerByEntry(int32 entry) override
         {
             switch (entry)
             {

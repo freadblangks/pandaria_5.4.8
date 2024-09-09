@@ -275,7 +275,7 @@ class npc_sinclari_vh : public CreatureScript
     public:
         npc_sinclari_vh() : CreatureScript("npc_sinclari_vh") { }
 
-        bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action)
+        bool OnGossipSelect(Player* player, Creature* creature, uint32 /*sender*/, uint32 action) override
         {
             player->PlayerTalkClass->ClearMenus();
             switch (action)
@@ -314,7 +314,7 @@ class npc_sinclari_vh : public CreatureScript
             return true;
         }
 
-        bool OnGossipHello(Player* player, Creature* creature)
+        bool OnGossipHello(Player* player, Creature* creature) override
         {
             if (creature->IsQuestGiver())
                 player->PrepareQuestMenu(creature->GetGUID());
@@ -532,7 +532,7 @@ class npc_azure_saboteur : public CreatureScript
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NOT_SELECTABLE);
             }
 
-            void WaypointReached(uint32 waypointId)
+            void WaypointReached(uint32 waypointId) override
             {
                 switch (uiBoss)
                 {
@@ -614,7 +614,7 @@ class npc_azure_saboteur : public CreatureScript
             {
                 me->CastSpell(me, SABOTEUR_SHIELD_DISRUPTION, false);
                 me->DisappearAndDie();
-                Creature* pSaboPort = Unit::GetCreature(*me, instance->GetData64(DATA_SABOTEUR_PORTAL));
+                Creature* pSaboPort = Unit::GetCreature(*me, instance->GetGuidData(DATA_SABOTEUR_PORTAL));
                 if (pSaboPort)
                     pSaboPort->DisappearAndDie();
                 instance->SetData(DATA_START_BOSS_ENCOUNTER, 1);
@@ -655,7 +655,7 @@ class npc_teleportation_portal_vh : public CreatureScript
                 bPortalGuardianOrKeeperOrEliteSpawn = false;
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void MoveInLineOfSight(Unit* /*who*/) override { }
 
@@ -690,7 +690,7 @@ class npc_teleportation_portal_vh : public CreatureScript
                                     DoSummon(entry, me, 2.0f, 20000, TEMPSUMMON_DEAD_DESPAWN);
                                 }
 
-                                if (Creature* sinclariTrigger = instance->instance->GetCreature(instance->GetData64(DATA_SINCLARI_TRIGGER)))
+                                if (Creature* sinclariTrigger = instance->instance->GetCreature(instance->GetGuidData(DATA_SINCLARI_TRIGGER)))
                                     sinclariTrigger->AI()->Talk(SAY_SINCLARI_ELITE_SQUAD);
 
                                 me->SetVisible(false);
@@ -729,7 +729,7 @@ class npc_teleportation_portal_vh : public CreatureScript
                                     me->SetUInt64Value(UNIT_FIELD_TARGET, 0);
                                 }
 
-                                if (Creature* sinclariTrigger = instance->instance->GetCreature(instance->GetData64(DATA_SINCLARI_TRIGGER)))
+                                if (Creature* sinclariTrigger = instance->instance->GetCreature(instance->GetGuidData(DATA_SINCLARI_TRIGGER)))
                                     sinclariTrigger->AI()->Talk(entry == NPC_PORTAL_GUARDIAN ? SAY_SINCLARI_PORTAL_GUARDIAN : SAY_SINCLARI_PORTAL_KEEPER);
                             }
                             uiSpawnTimer = SPAWN_TIME;
@@ -785,7 +785,7 @@ struct violet_hold_trashAI : public npc_escortAI
         uint32 portalLocationID;
         uint32 secondPortalRouteID;
 
-    void WaypointReached(uint32 uiPointId)
+    void WaypointReached(uint32 uiPointId) override
     {
         switch (portalLocationID)
         {
@@ -1384,7 +1384,7 @@ class npc_violet_hold_arcane_sphere : public CreatureScript
 
             void Reset() override { }
             void AttackStart(Unit* /*who*/) override { }
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
             void EnterEvadeMode() override { }
             void UpdateAI(uint32 /*diff*/) override { }
         };

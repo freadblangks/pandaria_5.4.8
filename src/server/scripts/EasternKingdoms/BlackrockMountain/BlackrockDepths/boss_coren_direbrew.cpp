@@ -125,7 +125,7 @@ class npc_coren_direbrew : public CreatureScript
                 me->SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_NON_ATTACKABLE | UNIT_FLAG_IMMUNE_TO_PC);
             }
 
-            void EnterCombat(Unit* /*who*/)
+            void JustEngagedWith(Unit* /*who*/)
             {
                 SetEquipmentSlots(false, EQUIP_ID_TANKARD, EQUIP_ID_TANKARD, EQUIP_NO_CHANGE);
 
@@ -139,7 +139,7 @@ class npc_coren_direbrew : public CreatureScript
                             creature->SetFaction(FACTION_HOSTILE_COREN);
                             creature->SetInCombatWithZone();
                         }
-                        _add[i] = 0;
+                        _add[i] = ObjectGuid::Empty;
                     }
                 }
 
@@ -227,7 +227,7 @@ class npc_coren_direbrew : public CreatureScript
             }
 
             private:
-                uint64 _add[3];
+                ObjectGuid _add[3];
                 uint32 _addTimer;
                 uint32 _disarmTimer;
                 bool _spawnedIlsa;
@@ -252,7 +252,7 @@ struct npc_brewmaiden : public ScriptedAI
         barrelTimer = 5 * IN_MILLISECONDS;
     }
 
-    void EnterCombat(Unit* /*who*/)
+    void JustEngagedWith(Unit* /*who*/)
     {
         me->SetInCombatWithZone();
     }

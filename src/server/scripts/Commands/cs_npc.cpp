@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -128,8 +128,8 @@ EnumName<UnitFlags> const unitFlags[MAX_UNIT_FLAGS] =
     CREATE_NAMED_ENUM(UNIT_FLAG_PET_IN_COMBAT),
     CREATE_NAMED_ENUM(UNIT_FLAG_PVP),
     CREATE_NAMED_ENUM(UNIT_FLAG_SILENCED),
-    CREATE_NAMED_ENUM(UNIT_FLAG_UNK_14),
-    CREATE_NAMED_ENUM(UNIT_FLAG_UNK_15),
+    CREATE_NAMED_ENUM(UNIT_FLAG_CANNOT_SWIM),
+    CREATE_NAMED_ENUM(UNIT_FLAG_CAN_SWIM),
     CREATE_NAMED_ENUM(UNIT_FLAG_UNK_16),
     CREATE_NAMED_ENUM(UNIT_FLAG_PACIFIED),
     CREATE_NAMED_ENUM(UNIT_FLAG_STUNNED),
@@ -184,6 +184,8 @@ public:
             { "model",           SEC_ADMINISTRATOR,  false,  &HandleNpcSetModelCommand,          },
             { "movetype",        SEC_ADMINISTRATOR,  false,  &HandleNpcSetMoveTypeCommand,       },
             { "phase",           SEC_ADMINISTRATOR,  false,  &HandleNpcSetPhaseCommand,          },
+            { "phaseid",         SEC_ADMINISTRATOR,  false,  &HandleNpcSetPhaseIDCommand,        },
+            { "phasegroup",      SEC_ADMINISTRATOR,  false,  &HandleNpcSetPhaseGroup,            },
             { "wanderdistance",  SEC_ADMINISTRATOR,  false,  &HandleNpcSetWanderDistanceCommand, },
             { "spawntime",       SEC_ADMINISTRATOR,  false,  &HandleNpcSetSpawnTimeCommand,      },
             { "data",            SEC_ADMINISTRATOR,  false,  &HandleNpcSetDataCommand,           },
@@ -259,10 +261,10 @@ public:
             data.curhealth = 0;
             data.curmana = 0;
             data.currentwaypoint = 0;
-            data.displayid = cinfo->GetFirstValidModelId();
+            //data.displayid = cinfo->GetFirstValidModelId(); Not sure need this line here
             data.dynamicflags = 0;
             data.equipmentId = 0;
-            data.mapid = trans->GetGOInfo()->moTransport.mapID;
+            data.mapId = trans->GetGOInfo()->moTransport.mapID;
             data.movementType = 0;
             data.npcflag = 0;
             data.npcflag2 = 0;
@@ -278,11 +280,14 @@ public:
         }
 
         Creature* creature = new Creature();
-        if (!creature->Create(sObjectMgr->GenerateLowGuid(HIGHGUID_UNIT), map, chr->GetPhaseMgr().GetPhaseMaskForSpawn(), id, 0, (uint32)teamval, x, y, z, o))
+        if (!creature->Create(map->GenerateLowGuid<HighGuid::Unit>(), map, chr->GetPhaseMgr().GetPhaseMaskForSpawn(), id, 0, (uint32)teamval, x, y, z, o))
         {
             delete creature;
             return false;
         }
+
+        for (auto phase : chr->GetPhases())
+            creature->SetPhased(phase, false, true);
 
         creature->SaveToDB(map->GetId(), (1 << map->GetSpawnMode()), chr->GetPhaseMgr().GetPhaseMaskForSpawn());
 
@@ -373,7 +378,7 @@ public:
 
         /* FIXME: impossible without entry
         if (lowguid)
-            creature = ObjectAccessor::GetCreature(*handler->GetSession()->GetPlayer(), MAKE_GUID(lowguid, HIGHGUID_UNIT));
+            creature = ObjectAccessor::GetCreature(*handler->GetSession()->GetPlayer(), MAKE_GUID(lowguid, HighGuid::Unit));
         */
 
         // attempt check creature existence by DB data
@@ -399,7 +404,7 @@ public:
             wait = 0;
 
         // Update movement type
-        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_MOVEMENT_TYPE);
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_MOVEMENT_TYPE);
 
         stmt->setUInt8(0, uint8(WAYPOINT_MOTION_TYPE));
         stmt->setUInt32(1, lowGuid);
@@ -520,7 +525,7 @@ public:
                 return false;
 
             if (CreatureData const* cr_data = sObjectMgr->GetCreatureData(lowguid))
-                unit = handler->GetSession()->GetPlayer()->GetMap()->GetCreature(MAKE_NEW_GUID(lowguid, cr_data->id, HIGHGUID_UNIT));
+                unit = handler->GetSession()->GetPlayer()->GetMap()->GetCreature(ObjectGuid(HighGuid::Unit, cr_data->id, lowguid));
         }
         else
             unit = handler->getSelectedCreature();
@@ -612,16 +617,14 @@ public:
         // Update in memory..
         if (CreatureTemplate const* cinfo = creature->GetCreatureTemplate())
         {
-            const_cast<CreatureTemplate*>(cinfo)->faction_A = factionId;
-            const_cast<CreatureTemplate*>(cinfo)->faction_H = factionId;
+            const_cast<CreatureTemplate*>(cinfo)->faction = factionId;
         }
 
         // ..and DB
-        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_FACTION);
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_FACTION);
 
         stmt->setUInt16(0, uint16(factionId));
-        stmt->setUInt16(1, uint16(factionId));
-        stmt->setUInt32(2, creature->GetEntry());
+        stmt->setUInt32(1, creature->GetEntry());
 
         WorldDatabase.Execute(stmt);
 
@@ -647,7 +650,7 @@ public:
 
         creature->SetUInt32Value(UNIT_FIELD_NPC_FLAGS, npcFlags);
 
-        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_NPCFLAG);
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_NPCFLAG);
 
         stmt->setUInt32(0, npcFlags);
         stmt->setUInt32(1, creature->GetEntry());
@@ -688,7 +691,7 @@ public:
 
         creature->AI()->SetData(data_1, data_2);
         std::string AIorScript = creature->GetAIName() != "" ? "AI type: " + creature->GetAIName() : (creature->GetScriptName() != "" ? "Script Name: " + creature->GetScriptName() : "No AI or Script Name Set");
-        handler->PSendSysMessage(LANG_NPC_SETDATA, creature->GetGUID(), creature->GetEntry(), creature->GetName().c_str(), data_1, data_2, AIorScript.c_str());
+        handler->PSendSysMessage(LANG_NPC_SETDATA, creature->GetGUID().GetCounter(), creature->GetEntry(), creature->GetName().c_str(), data_1, data_2, AIorScript.c_str());
         return true;
     }
 
@@ -739,25 +742,42 @@ public:
         std::string defRespawnDelayStr = secsToTimeString(target->GetRespawnDelay(), true);
         std::string defRespawnDelayMaxStr = target->GetRespawnDelayMax() ? secsToTimeString(target->GetRespawnDelayMax(), true) : defRespawnDelayStr;
 
-        handler->PSendSysMessage(LANG_NPCINFO_CHAR,  target->GetDBTableGUIDLow(), target->GetGUIDLow(), faction, npcflags, Entry, displayid, nativeid);
+        handler->PSendSysMessage(LANG_NPCINFO_CHAR,  target->GetDBTableGUIDLow(), target->GetGUID().GetCounter(), faction, npcflags, Entry, displayid, nativeid);
         handler->PSendSysMessage(LANG_NPCINFO_LEVEL, target->GetLevel());
         handler->PSendSysMessage(LANG_NPCINFO_EQUIPMENT, target->GetCurrentEquipmentId(), target->GetOriginalEquipmentId());
         handler->PSendSysMessage(LANG_NPCINFO_HEALTH, target->GetCreateHealth(), target->GetMaxHealth(), target->GetHealth());
 
         handler->PSendSysMessage("Gossip Menu ID: %u", cInfo->GossipMenuId);
-        handler->PSendSysMessage("Inhabit Type: %u", target->GetInhabitType());
+        handler->PSendSysMessage(LANG_NPCINFO_MOVEMENT_DATA, target->GetMovementTemplate().ToString().c_str());
 
         handler->PSendSysMessage(LANG_NPCINFO_UNIT_FIELD_FLAGS, target->GetUInt32Value(UNIT_FIELD_FLAGS));
         for (uint8 i = 0; i < MAX_UNIT_FLAGS; ++i)
             if (target->GetUInt32Value(UNIT_FIELD_FLAGS) & unitFlags[i].Value)
                 handler->PSendSysMessage("%s (0x%X)", unitFlags[i].Name, unitFlags[i].Value);
 
-        handler->PSendSysMessage(LANG_NPCINFO_FLAGS2, target->GetUInt32Value(UNIT_FIELD_FLAGS2), target->GetUInt32Value(OBJECT_FIELD_DYNAMIC_FLAGS), target->GetFaction());
+        handler->PSendSysMessage(LANG_NPCINFO_FLAGS2, target->GetUInt32Value(UNIT_FIELD_FLAGS_2), target->GetUInt32Value(OBJECT_FIELD_DYNAMIC_FLAGS), target->GetFaction());
 
         handler->PSendSysMessage(LANG_COMMAND_RAWPAWNTIMES, defRespawnDelayStr.c_str(), defRespawnDelayMaxStr.c_str(),  curRespawnDelayStr.c_str());
         handler->PSendSysMessage(LANG_NPCINFO_LOOT,  cInfo->lootid, cInfo->pickpocketLootId, cInfo->SkinLootId);
         handler->PSendSysMessage(LANG_NPCINFO_DUNGEON_ID, target->GetInstanceId(), target->GetMap()->GetDifficulty());
         handler->PSendSysMessage(LANG_NPCINFO_PHASEMASK, target->GetPhaseMask());
+
+        if (CreatureData const* data = sObjectMgr->GetCreatureData(target->GetDBTableGUIDLow()))
+        {
+            handler->PSendSysMessage(LANG_NPCINFO_PHASES, data->phaseid, data->phaseGroup);
+            if (data->phaseGroup)
+            {
+                std::set<uint32> _phases = target->GetPhases();
+
+                if (!_phases.empty())
+                {
+                    handler->PSendSysMessage(LANG_NPCINFO_PHASE_IDS);
+                    for (uint32 phaseId : _phases)
+                        handler->PSendSysMessage("%u", phaseId);
+                }
+            }
+        }
+
         handler->PSendSysMessage(LANG_NPCINFO_ARMOR, target->GetArmor());
         handler->PSendSysMessage(LANG_NPCINFO_POSITION, target->GetPositionX(), target->GetPositionY(), target->GetPositionZ());
 
@@ -794,7 +814,7 @@ public:
         uint32  mapId =  moTransport ? player->GetTransport()->GetGOInfo()->moTransport.mapID : player->GetMapId();
         Position pos = moTransport ? player->m_movementInfo.transport.pos : *player;
 
-        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_CREATURE_NEAREST);
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_CREATURE_NEAREST);
         stmt->setFloat(0, pos.GetPositionX());
         stmt->setFloat(1, pos.GetPositionY());
         stmt->setFloat(2, pos.GetPositionZ());
@@ -836,7 +856,7 @@ public:
     //move selected creature
     static bool HandleNpcMoveCommand(ChatHandler* handler, char const* args)
     {
-        uint32 lowguid = 0;
+        uint32 lowguid = ObjectGuid::Empty;
 
         Creature* creature = handler->getSelectedCreature();
 
@@ -851,7 +871,7 @@ public:
 
             /* FIXME: impossible without entry
             if (lowguid)
-                creature = ObjectAccessor::GetCreature(*handler->GetSession()->GetPlayer(), MAKE_GUID(lowguid, HIGHGUID_UNIT));
+                creature = ObjectAccessor::GetCreature(*handler->GetSession()->GetPlayer(), MAKE_GUID(lowguid, HighGuid::Unit));
             */
 
             // Attempting creature load from DB data
@@ -865,7 +885,7 @@ public:
                     return false;
                 }
 
-                uint32 map_id = data->mapid;
+                uint32 map_id = data->mapId;
 
                 if (handler->GetSession()->GetPlayer()->GetMapId() != map_id)
                 {
@@ -907,7 +927,7 @@ public:
             }
         }
 
-        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_POSITION);
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_POSITION);
 
         stmt->setFloat(0, x);
         stmt->setFloat(1, y);
@@ -1001,7 +1021,7 @@ public:
         if (!guid_str)
             return false;
 
-        uint32 lowguid = 0;
+        uint32 lowguid = ObjectGuid::Empty;
         Creature* creature = NULL;
 
         if (dontdel_str)
@@ -1047,7 +1067,7 @@ public:
 
             /* impossible without entry
             if (lowguid)
-                creature = ObjectAccessor::GetCreature(*handler->GetSession()->GetPlayer(), MAKE_GUID(lowguid, HIGHGUID_UNIT));
+                creature = ObjectAccessor::GetCreature(*handler->GetSession()->GetPlayer(), MAKE_GUID(lowguid, HighGuid::Unit));
             */
 
             // attempt check creature existence by DB data
@@ -1145,6 +1165,59 @@ public:
         return true;
     }
 
+    //npc phase handling
+    //change phase of creature
+    static bool HandleNpcSetPhaseGroup(ChatHandler* handler, char const* args)
+    {
+        if (!*args)
+            return false;
+
+        uint32 phaseGroupId = (uint32)atoi((char*)args);
+
+        Creature* creature = handler->getSelectedCreature();
+        if (!creature || creature->IsPet())
+        {
+            handler->SendSysMessage(LANG_SELECT_CREATURE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        creature->ClearPhases();
+
+        for (uint32 id : GetPhasesForGroup(phaseGroupId))
+            creature->SetPhased(id, false, true); // don't send update here for multiple phases, only send it once after adding all phases
+
+        creature->UpdateObjectVisibility();
+
+        creature->SaveToDB();
+
+        return true;
+    }
+
+    //npc phase handling
+    //change phase of creature
+    static bool HandleNpcSetPhaseIDCommand(ChatHandler* handler, char const* args)
+    {
+        if (!*args)
+            return false;
+
+        uint32 phase = (uint32)atoi((char*)args);
+
+        Creature* creature = handler->getSelectedCreature();
+        if (!creature || creature->IsPet())
+        {
+            handler->SendSysMessage(LANG_SELECT_CREATURE);
+            handler->SetSentErrorMessage(true);
+            return false;
+        }
+
+        creature->ClearPhases();
+        creature->SetPhased(phase, true, true);
+        creature->SaveToDB();
+
+        return true;
+    }
+
     //set spawn dist of creature
     static bool HandleNpcSetWanderDistanceCommand(ChatHandler* handler, char const* args)
     {
@@ -1179,7 +1252,7 @@ public:
             creature->Respawn();
         }
 
-        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_WANDER_DISTANCE);
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_WANDER_DISTANCE);
 
         stmt->setFloat(0, option);
         stmt->setUInt8(1, uint8(mtype));
@@ -1219,7 +1292,7 @@ public:
         else
             return false;
 
-        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_SPAWN_TIME_SECS);
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_UPD_CREATURE_SPAWN_TIME_SECS);
 
         stmt->setUInt32(0, uint32(spawnTime));
         stmt->setUInt32(1, guidLow);
@@ -1245,7 +1318,7 @@ public:
             return false;
         }
 
-        creature->MonsterSay(args, LANG_UNIVERSAL, NULL);
+        creature->Say(args, LANG_UNIVERSAL);
 
         // make some emotes
         char lastchar = args[strlen(args) - 1];
@@ -1274,7 +1347,7 @@ public:
             return false;
         }
 
-        creature->MonsterTextEmote(args, 0);
+        creature->TextEmote(args, 0);
 
         return true;
     }
@@ -1329,14 +1402,14 @@ public:
         if (!creature || !receiver_str || !text)
             return false;
 
-        uint64 receiver_guid = atol(receiver_str);
+        ObjectGuid receiver_guid = ObjectGuid(HighGuid::Player, uint32(atol(receiver_str)));
 
         // check online security
         Player* receiver = ObjectAccessor::FindPlayer(receiver_guid);
-        if (handler->HasLowerSecurity(receiver, 0))
+        if (handler->HasLowerSecurity(receiver, ObjectGuid::Empty))
             return false;
 
-        creature->MonsterWhisper(text, receiver);
+        creature->Whisper(text, LANG_UNIVERSAL, receiver);
         return true;
     }
 
@@ -1353,7 +1426,7 @@ public:
             return false;
         }
 
-        creature->MonsterYell(args, LANG_UNIVERSAL, NULL);
+        creature->Yell(args, LANG_UNIVERSAL);
 
         // make an emote
         creature->HandleEmoteCommand(EMOTE_ONESHOT_SHOUT);
@@ -1450,17 +1523,17 @@ public:
         // caster have pet now
         player->SetMinion(pet, true);
 
-        SQLTransaction trans = CharacterDatabase.BeginTransaction();
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
         pet->SavePetToDB(trans);
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHAR_PET_SLOT_BY_ID);
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_CHAR_PET_SLOT_BY_ID);
         stmt->setUInt8(0, newPetSlot);
-        stmt->setUInt32(1, player->GetGUIDLow());
+        stmt->setUInt32(1, player->GetGUID().GetCounter());
         stmt->setUInt32(2, pet->GetCharmInfo()->GetPetNumber());
         trans->Append(stmt);
         CharacterDatabase.CommitTransaction(trans);
         player->PetSpellInitialize();
 
-        player->GetSession()->SendPetList(0, PET_SLOT_ACTIVE_FIRST, PET_SLOT_ACTIVE_LAST);
+        player->GetSession()->SendPetList(ObjectGuid::Empty, PET_SLOT_ACTIVE_FIRST, PET_SLOT_ACTIVE_LAST);
 
         return true;
     }
@@ -1491,24 +1564,23 @@ public:
             return false;
 
         Player* chr = handler->GetSession()->GetPlayer();
-        FormationInfo* group_member;
+        FormationInfo group_member;
 
-        group_member                 = new FormationInfo;
-        group_member->follow_angle   = (creature->GetAngle(chr) - chr->GetOrientation()) * 180 / M_PI;
-        group_member->follow_dist    = sqrtf(pow(chr->GetPositionX() - creature->GetPositionX(), int(2))+pow(chr->GetPositionY() - creature->GetPositionY(), int(2)));
-        group_member->leaderGUID     = leaderGUID;
-        group_member->groupAI        = 0;
+        group_member.follow_angle   = (creature->GetAngle(chr) - chr->GetOrientation()) * 180 / M_PI;
+        group_member.follow_dist    = sqrtf(pow(chr->GetPositionX() - creature->GetPositionX(), int(2))+pow(chr->GetPositionY() - creature->GetPositionY(), int(2)));
+        group_member.leaderGUID     = leaderGUID;
+        group_member.groupAI        = 0;
 
         sFormationMgr->CreatureGroupMap[lowguid] = group_member;
         creature->SearchFormation();
 
-        PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_INS_CREATURE_FORMATION);
+        WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_INS_CREATURE_FORMATION);
 
         stmt->setUInt32(0, leaderGUID);
         stmt->setUInt32(1, lowguid);
-        stmt->setFloat(2, group_member->follow_dist);
-        stmt->setFloat(3, group_member->follow_angle);
-        stmt->setUInt32(4, uint32(group_member->groupAI));
+        stmt->setFloat(2, group_member.follow_dist);
+        stmt->setFloat(3, group_member.follow_angle);
+        stmt->setUInt32(4, uint32(group_member.groupAI));
 
         WorldDatabase.Execute(stmt);
 
@@ -1535,7 +1607,7 @@ public:
 
         if (!creature->GetDBTableGUIDLow())
         {
-            handler->PSendSysMessage("Selected creature %u isn't in creature table", creature->GetGUIDLow());
+            handler->PSendSysMessage("Selected creature %u isn't in creature table", creature->GetGUID().GetCounter());
             handler->SetSentErrorMessage(true);
             return false;
         }

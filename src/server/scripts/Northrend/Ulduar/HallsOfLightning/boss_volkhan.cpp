@@ -87,7 +87,7 @@ class boss_volkhan : public CreatureScript
 
             InstanceScript* instance;
 
-            std::list<uint64> m_lGolemGUIDList;
+            std::list<ObjectGuid> m_lGolemGUIDList;
 
             bool m_bHasTemper;
             bool m_bIsStriking;
@@ -128,7 +128,7 @@ class boss_volkhan : public CreatureScript
                     instance->SetData(TYPE_VOLKHAN, NOT_STARTED);
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 Talk(SAY_AGGRO);
 

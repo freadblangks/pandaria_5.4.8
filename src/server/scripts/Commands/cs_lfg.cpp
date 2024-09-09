@@ -22,14 +22,13 @@
 #include "Group.h"
 #include "Player.h"
 #include "Config.h"
-#include "CustomLogs.h"
 
 static void GetPlayerInfo(ChatHandler* handler, Player* player)
 {
     if (!player)
         return;
 
-    uint64 guid = player->GetGUID();
+    ObjectGuid guid = player->GetGUID();
     if (auto queues = sLFGMgr->GetPlayerQueues(guid))
     {
         for (auto&& itr : *queues)
@@ -109,7 +108,7 @@ public:
             return true;
         }
 
-        uint64 guid = grp->GetGUID();
+        ObjectGuid guid = grp->GetGUID();
         std::string const& state = lfg::GetStateString(sLFGMgr->GetActiveState(guid));
         handler->PSendSysMessage(LANG_LFG_GROUP_INFO, grp->isLFGGroup(),
             state.c_str(), sLFGMgr->GetDungeon(guid));
@@ -190,7 +189,7 @@ public:
         time_t now = time(nullptr);
 
         static std::map<uint32, time_t> cooldowns;
-        time_t& cooldown = cooldowns[player->GetGUIDLow()];
+        time_t& cooldown = cooldowns[player->GetGUID().GetCounter()];
         if (now <= cooldown)
         {
             handler->PSendSysMessage("Вы уже использовали эту команду за последнюю минуту");
@@ -199,25 +198,6 @@ public:
         }
         cooldown = now + MINUTE;
 
-        std::string name = TimeToTimestampStr(now) + " - " + player->GetName() + ".log";
-        std::string file = sConfigMgr->GetStringDefault("LogsDir", "") + "/lfg/" + name;
-        LogFile out;
-        out.Open(file.c_str(), "a");
-
-        std::ostringstream ss;
-        ss << "LFG Dump\n";
-        ss << "Player: " << player->GetName() << " (" << player->GetGUIDLow() << ")\n";
-        ss << "Time: " << TimeToTimestampStr(now) << " (" << now << ")\n";
-        ss << "Comment: " << args << "\n\n";
-        for (auto&& manager : sLFGMgr->GetQueueManagers())
-        {
-            ss << "\nQueue " << (uint32)manager.first << ":\n\n";
-            manager.second.OutDebug(ss, 0, false);
-        }
-        ss << "\n-END-";
-        out.Write(ss.str().c_str());
-
-        handler->PSendSysMessage("Дамп сохранён на сервере: %s. Описывая проблему, укажите название этого файла или заскриншотьте этот текст.", name.c_str());
         return true;
     }
 

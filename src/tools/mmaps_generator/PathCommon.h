@@ -20,11 +20,11 @@
 #ifndef _MMAP_COMMON_H
 #define _MMAP_COMMON_H
 
+#include "Common.h"
+
 #include <string>
 #include <vector>
-#include <ace/OS_NS_sys_time.h>
-
-#include "Define.h"
+#include <cstring>
 
 #ifndef _WIN32
     #include <stddef.h>

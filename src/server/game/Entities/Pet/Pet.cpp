@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -70,7 +70,7 @@ void Pet::AddToWorld()
     if (!IsInWorld())
     {
         ///- Register the pet for guid lookup
-        sObjectAccessor->AddObject(this);
+        GetMap()->GetObjectsStore().Insert<Pet>(GetGUID(), this);
         Unit::AddToWorld();
         AIM_Initialize();
     }
@@ -95,24 +95,24 @@ void Pet::RemoveFromWorld()
     ///- Remove the pet from the accessor
     if (IsInWorld())
     {
-        if (IsTemporary())
+        if (IsTemporary()) // hackfix, need remove in future
         {
-            ASSERT(!CurrentMap || FindMap() == GetOwner()->FindMap());
+            ASSERT(FindMap() == GetOwner()->FindMap());
             GetOwner()->SetMinion(this, false);
             GetOwner()->RemoveSummon(this);
         }
         ///- Don't call the function for Creature, normal mobs + totems go in a different storage
         Unit::RemoveFromWorld();
-        sObjectAccessor->RemoveObject(this);
+        GetMap()->GetObjectsStore().Remove<Pet>(GetGUID());
     }
 }
 
 bool Pet::LoadPetFromDB(PetLoadMode mode, uint32 param, Position const* pos)
 {
     Player* owner = GetOwner();
-    uint32 ownerid = owner->GetGUIDLow();
+    uint32 ownerid = owner->GetGUID().GetCounter();
 
-    PreparedStatement* stmt;
+    CharacterDatabasePreparedStatement* stmt;
     PreparedQueryResult result;
 
     switch (mode)
@@ -203,7 +203,7 @@ bool Pet::LoadPetFromDB(PetLoadMode mode, uint32 param, Position const* pos)
     }
 
     Map* map = owner->GetMap();
-    uint32 guid = sObjectMgr->GenerateLowGuid(HIGHGUID_PET);
+    uint32 guid = map->GenerateLowGuid<HighGuid::Pet>();
     if (!Create(guid, map, owner->GetPhaseMask(), petEntry, petId))
         return false;
 
@@ -217,11 +217,14 @@ bool Pet::LoadPetFromDB(PetLoadMode mode, uint32 param, Position const* pos)
     if (!IsPositionValid())
     {
         TC_LOG_ERROR("entities.pet", "Pet (guidlow %d, entry %d) not loaded. Suggested coordinates isn't valid (X: %f Y: %f)",
-            GetGUIDLow(), GetEntry(), GetPositionX(), GetPositionY());
+            GetGUID().GetCounter(), GetEntry(), GetPositionX(), GetPositionY());
         return false;
     }
 
     AddToTransportIfNeeded(owner->GetTransport());
+
+    for (auto itr : owner->GetPhases())
+        SetPhased(itr, false, true);
 
     setPetType(petType);
     SetFaction(owner->GetFaction());
@@ -256,7 +259,7 @@ bool Pet::LoadPetFromDB(PetLoadMode mode, uint32 param, Position const* pos)
             SetClass(CLASS_WARRIOR);
             SetGender(GENDER_NONE);
             SetFieldPowerType(POWER_FOCUS);
-            SetByteFlag(UNIT_FIELD_SHAPESHIFT_FORM, 2, fields[9].GetBool() ? UNIT_CAN_BE_ABANDONED : UNIT_CAN_BE_RENAMED | UNIT_CAN_BE_ABANDONED);
+            SetByteFlag(UNIT_FIELD_BYTES_2, 2, fields[9].GetBool() ? UNIT_CAN_BE_ABANDONED : UNIT_CAN_BE_RENAMED | UNIT_CAN_BE_ABANDONED);
             SetFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_PVP_ATTACKABLE);
                                                             // this enables popup window (pet abandon, cancel)
             SetPowerType(POWER_FOCUS);
@@ -341,8 +344,8 @@ bool Pet::LoadPetFromDB(PetLoadMode mode, uint32 param, Position const* pos)
 
     if (getPetType() == HUNTER_PET)
     {
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PET_DECLINED_NAME);
-        stmt->setUInt32(0, owner->GetGUIDLow());
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PET_DECLINED_NAME);
+        stmt->setUInt32(0, owner->GetGUID().GetCounter());
         stmt->setUInt32(1, GetCharmInfo()->GetPetNumber());
         PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
@@ -388,7 +391,7 @@ bool Pet::LoadPetFromDB(PetLoadMode mode, uint32 param, Position const* pos)
     return true;
 }
 
-void Pet::SavePetToDB(SQLTransaction trans)
+void Pet::SavePetToDB(CharacterDatabaseTransaction trans)
 {
     if (!GetEntry())
         return;
@@ -398,7 +401,7 @@ void Pet::SavePetToDB(SQLTransaction trans)
         return;
 
     // not save not player pets
-    if (!IS_PLAYER_GUID(GetOwnerGUID()))
+    if (!GetOwnerGUID().IsPlayer())
         return;
 
     Player* owner = GetOwner();
@@ -420,7 +423,7 @@ void Pet::SavePetToDB(SQLTransaction trans)
     _SaveSpells(trans);
     GetSpellHistory()->SaveToDB<Pet>(trans);
 
-    uint32 ownerLowGUID = GUID_LOPART(GetOwnerGUID());
+    uint32 ownerLowGUID = GetOwnerGUID().GetCounter();
     std::string name = m_name;
     CharacterDatabase.EscapeString(name);
     uint32 dbslot = 0;
@@ -443,7 +446,7 @@ void Pet::SavePetToDB(SQLTransaction trans)
         << uint32(GetReactState()) << ','
         << uint32(dbslot) << ", '"
         << name.c_str() << "', "
-        << uint32(HasByteFlag(UNIT_FIELD_SHAPESHIFT_FORM, 2, UNIT_CAN_BE_RENAMED) ? 0 : 1) << ','
+        << uint32(HasByteFlag(UNIT_FIELD_BYTES_2, 2, UNIT_CAN_BE_RENAMED) ? 0 : 1) << ','
         << curhealth << ','
         << curmana << ", '";
 
@@ -466,9 +469,9 @@ void Pet::SavePetToDB(SQLTransaction trans)
 
 void Pet::DeleteFromDB(uint32 guidlow)
 {
-    SQLTransaction trans = CharacterDatabase.BeginTransaction();
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CHAR_PET_BY_ID);
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CHAR_PET_BY_ID);
     stmt->setUInt32(0, guidlow);
     trans->Append(stmt);
 
@@ -622,7 +625,7 @@ bool Pet::CreateBaseAtCreature(Creature* creature)
     if (!IsPositionValid())
     {
         TC_LOG_ERROR("entities.pet", "Pet (guidlow %d, entry %d) not created base at creature. Suggested coordinates isn't valid (X: %f Y: %f)",
-            GetGUIDLow(), GetEntry(), GetPositionX(), GetPositionY());
+            GetGUID().GetCounter(), GetEntry(), GetPositionX(), GetPositionY());
         return false;
     }
 
@@ -659,7 +662,7 @@ bool Pet::CreateBaseAtCreatureInfo(CreatureTemplate const* cinfo, Unit* owner)
 bool Pet::CreateBaseAtTamed(CreatureTemplate const* cinfo, Map* map, uint32 phaseMask)
 {
     TC_LOG_DEBUG("entities.pet", "Pet::CreateBaseForTamed");
-    uint32 guid=sObjectMgr->GenerateLowGuid(HIGHGUID_PET);
+    uint32 guid = map->GenerateLowGuid<HighGuid::Pet>();
     uint32 petId = sObjectMgr->GeneratePetNumber();
     if (!Create(guid, map, phaseMask, cinfo->Entry, petId))
         return false;
@@ -677,7 +680,7 @@ bool Pet::CreateBaseAtTamed(CreatureTemplate const* cinfo, Map* map, uint32 phas
         SetGender(GENDER_NONE);
         SetFieldPowerType(POWER_FOCUS);
         SetSheath(SHEATH_STATE_MELEE);
-        SetByteFlag(UNIT_FIELD_SHAPESHIFT_FORM, 2, UNIT_CAN_BE_RENAMED | UNIT_CAN_BE_ABANDONED);
+        SetByteFlag(UNIT_FIELD_BYTES_2, 2, UNIT_CAN_BE_RENAMED | UNIT_CAN_BE_ABANDONED);
     }
 
     return true;
@@ -919,9 +922,9 @@ uint32 Pet::GetCurrentFoodBenefitLevel(uint32 itemlevel) const
 
 void Pet::_LoadAuras(uint32 timediff)
 {
-    TC_LOG_DEBUG("entities.pet", "Loading auras for pet %u", GetGUIDLow());
+    TC_LOG_DEBUG("entities.pet", "Loading auras for pet %u", GetGUID().GetCounter());
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PET_AURAS);
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PET_AURAS);
     stmt->setUInt32(0, m_charmInfo->GetPetNumber());
     PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
@@ -963,7 +966,7 @@ void Pet::_LoadAuras(uint32 timediff)
             damage.fill(0);
             std::array<int32, MAX_SPELL_EFFECTS> baseDamage;
             baseDamage.fill(0);
-            uint64 casterGuid = fields[0].GetUInt64();
+            ObjectGuid casterGuid(fields[0].GetUInt64());
             // null guid stored - pet is the caster of the spell - see Pet::_SaveAuras
             if (!casterGuid)
                 casterGuid = GetGUID();
@@ -1030,7 +1033,7 @@ void Pet::_LoadAuras(uint32 timediff)
 
 void Pet::_LoadSpells()
 {
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PET_SPELL);
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PET_SPELL);
     stmt->setUInt32(0, m_charmInfo->GetPetNumber());
     PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
@@ -1045,7 +1048,7 @@ void Pet::_LoadSpells()
             auto itr = m_spells.find(spellId);
             if (itr == m_spells.end() || !spellInfo)
             {
-                PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PET_SPELL_BY_SPELL);
+                CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PET_SPELL_BY_SPELL);
                 stmt->setUInt32(0, m_charmInfo->GetPetNumber());
                 stmt->setUInt32(1, spellId);
                 CharacterDatabase.Execute(stmt);
@@ -1062,13 +1065,13 @@ void Pet::_LoadSpells()
     }
 }
 
-void Pet::_SaveSpells(SQLTransaction& trans)
+void Pet::_SaveSpells(CharacterDatabaseTransaction trans)
 {
     for (PetSpellMap::iterator itr = m_spells.begin(), next = m_spells.begin(); itr != m_spells.end(); itr = next)
     {
         ++next;
 
-        PreparedStatement* stmt;
+        CharacterDatabasePreparedStatement* stmt;
 
         switch (itr->second.state)
         {
@@ -1105,9 +1108,9 @@ void Pet::_SaveSpells(SQLTransaction& trans)
     }
 }
 
-void Pet::_SaveAuras(SQLTransaction& trans)
+void Pet::_SaveAuras(CharacterDatabaseTransaction trans)
 {
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PET_AURAS);
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_PET_AURAS);
     stmt->setUInt32(0, m_charmInfo->GetPetNumber());
     trans->Append(stmt);
 
@@ -1375,8 +1378,8 @@ void Pet::resetTalentsForAllPetsOf(Player* owner, Pet* onlinePet /*= NULL*/)
     // now need only reset for offline pets (all pets except online case)
     uint32 exceptPetNumber = onlinePet ? onlinePet->GetCharmInfo()->GetPetNumber() : 0;
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHAR_PET);
-    stmt->setUInt32(0, owner->GetGUIDLow());
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHAR_PET);
+    stmt->setUInt32(0, owner->GetGUID().GetCounter());
     stmt->setUInt32(1, exceptPetNumber);
     PreparedQueryResult resultPets = CharacterDatabase.Query(stmt);
 
@@ -1385,7 +1388,7 @@ void Pet::resetTalentsForAllPetsOf(Player* owner, Pet* onlinePet /*= NULL*/)
         return;
 
     stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_PET_SPELL_LIST);
-    stmt->setUInt32(0, owner->GetGUIDLow());
+    stmt->setUInt32(0, owner->GetGUID().GetCounter());
     stmt->setUInt32(1, exceptPetNumber);
     PreparedQueryResult result = CharacterDatabase.Query(stmt);
 
@@ -1534,9 +1537,9 @@ bool Pet::Create(uint32 guidlow, Map* map, uint32 phaseMask, uint32 Entry, uint3
     SetMap(map);
 
     SetPhaseMask(phaseMask, false);
-    Object::_Create(guidlow, petId, HIGHGUID_PET);
+    Object::_Create(guidlow, petId, HighGuid::Pet);
 
-    m_DBTableGuid = guidlow;
+    m_spawnId = guidlow;
     m_originalEntry = Entry;
 
     if (!InitEntry(Entry))
@@ -1755,9 +1758,9 @@ Player* Pet::GetOwner() const
     return Minion::GetOwner()->ToPlayer();
 }
 
-void Pet::SetDisplayId(uint32 modelId)
+void Pet::SetDisplayId(uint32 modelId, float displayScale /*= 1.f*/)
 {
-    Guardian::SetDisplayId(modelId);
+    Guardian::SetDisplayId(modelId, displayScale);
 
     if (!isControlled())
         return;
@@ -1772,8 +1775,8 @@ void Pet::SetObjectScale(float scale)
 {
     Unit::SetObjectScale(scale);
 
-    SetFloatValue(UNIT_FIELD_BOUNDING_RADIUS, scale * DEFAULT_WORLD_OBJECT_SIZE);
-    SetFloatValue(UNIT_FIELD_COMBAT_REACH, scale * DEFAULT_COMBAT_REACH);
+    SetFloatValue(UNIT_FIELD_BOUNDING_RADIUS, scale * DEFAULT_PLAYER_BOUNDING_RADIUS);
+    SetFloatValue(UNIT_FIELD_COMBAT_REACH, scale * DEFAULT_PLAYER_COMBAT_REACH);
 }
 
 void Guardian::Regenerate()
@@ -1888,7 +1891,7 @@ void Guardian::Regenerate(Powers power)
 bool TempSummon::IsMinorGuardian() const
 {
     // Probably we need to determine is spell used for summon...
-    if (!IS_PLAYER_GUID(GetCreatorGUID()))
+    if (!GetCreatorGUID().IsPlayer())
         return false;
 
     if (IsPet())

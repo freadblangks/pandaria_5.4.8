@@ -676,7 +676,7 @@ class npc_wrathion_breath_of_the_black_prince : public CreatureScript
 
             EventMap events, nonCombatEvents;
             uint32 wp;
-            uint64 SummonerGUID;
+            ObjectGuid SummonerGUID;
 
             void IsSummonedBy(Unit* summoner) override
             {
@@ -780,7 +780,7 @@ struct npc_darkhatched_soulbleeder : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_SHADOWBOLT, urand(3.5 * IN_MILLISECONDS, 5.5 * IN_MILLISECONDS));
     }
@@ -820,7 +820,7 @@ struct npc_leechfingers : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_SHADOWBOLT, urand(3.5 * IN_MILLISECONDS, 5.5 * IN_MILLISECONDS));
         events.ScheduleEvent(EVENT_LEECHING_FINGERS, 8 * IN_MILLISECONDS);
@@ -870,7 +870,7 @@ struct npc_hatescale_spitter : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_SHOT, 2 * IN_MILLISECONDS);
         events.ScheduleEvent(EVENT_ACID_SPIT, urand(3.5 * IN_MILLISECONDS, 12 * IN_MILLISECONDS));
@@ -926,7 +926,7 @@ struct npc_hatescale_ironface : public ScriptedAI
         events.Reset();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_RUSHING_CHARGE, 0.5 * IN_MILLISECONDS);
         events.ScheduleEvent(EVENT_FLURRY, 10 * IN_MILLISECONDS);
@@ -988,7 +988,7 @@ struct npc_image_of_wrathion : public ScriptedAI
     npc_image_of_wrathion(Creature* creature) : ScriptedAI(creature) { }
 
     uint32 runestoneIndex;
-    uint64 ownerGUID;
+    ObjectGuid ownerGUID;
 
     void IsSummonedBy(Unit* summoner) override
     {
@@ -1001,7 +1001,7 @@ struct npc_image_of_wrathion : public ScriptedAI
         me->DespawnOrUnsummon(15 * IN_MILLISECONDS);
     }
 
-    uint32 DoFindRunestoneIndex(int n, uint64 ownerGUID)
+    uint32 DoFindRunestoneIndex(int n, ObjectGuid ownerGUID)
     {
         if (n < 1)
             return 0;
@@ -1022,14 +1022,14 @@ struct npc_wrathion_suen_celestial : public ScriptedAI
     npc_wrathion_suen_celestial(Creature* creature) : ScriptedAI(creature) { }
 
     TaskScheduler scheduler;
-    uint64 ownerGUID;
+    ObjectGuid ownerGUID;
     uint32 delay;
 
     void IsSummonedBy(Unit* summoner) override
     {
         delay = 0;
         me->SetPhaseMask(4, true);
-        me->ToTempSummon()->SetVisibleBySummonerOnly(true);
+        me->ToTempSummon()->SetPrivateObjectOwner(summoner->GetGUID());
         ownerGUID = summoner->GetGUID();
 
         if (summoner && summoner->ToPlayer())
@@ -1233,14 +1233,14 @@ struct npc_wrathion_chiji_celestial : public ScriptedAI
     npc_wrathion_chiji_celestial(Creature* creature) : ScriptedAI(creature) { }
 
     TaskScheduler scheduler;
-    uint64 ownerGUID;
+    ObjectGuid ownerGUID;
     uint32 delay;
 
     void IsSummonedBy(Unit* summoner) override
     {
         delay = 0;
         me->SetPhaseMask(4, true);
-        me->ToTempSummon()->SetVisibleBySummonerOnly(true);
+        me->ToTempSummon()->SetPrivateObjectOwner(summoner->GetGUID());
         ownerGUID = summoner->GetGUID();
 
         if (summoner && summoner->ToPlayer())
@@ -1397,14 +1397,14 @@ struct npc_wrathion_niuzao_celestial : public ScriptedAI
     npc_wrathion_niuzao_celestial(Creature* creature) : ScriptedAI(creature) { }
 
     TaskScheduler scheduler;
-    uint64 ownerGUID;
+    ObjectGuid ownerGUID;
     uint32 delay;
 
     void IsSummonedBy(Unit* summoner) override
     {
         delay = 0;
         me->SetPhaseMask(4, true);
-        me->ToTempSummon()->SetVisibleBySummonerOnly(true);
+        me->ToTempSummon()->SetPrivateObjectOwner(summoner->GetGUID());
         ownerGUID = summoner->GetGUID();
 
         if (summoner && summoner->ToPlayer())
@@ -1572,13 +1572,13 @@ struct npc_wrathion_xuen_challenge : public customCreatureAI
     npc_wrathion_xuen_challenge(Creature* creature) : customCreatureAI(creature) { }
 
     TaskScheduler scheduler;
-    uint64 targetGUID;
+    ObjectGuid targetGUID;
     bool hasReign;
     bool hasDefeat;
 
     void IsSummonedBy(Unit* summoner) override
     {
-        me->ToTempSummon()->SetVisibleBySummonerOnly(true);
+        me->ToTempSummon()->SetPrivateObjectOwner(summoner->GetGUID());
         me->SetPhaseMask(4, true);
         targetGUID = summoner->GetGUID();
     }
@@ -1593,7 +1593,7 @@ struct npc_wrathion_xuen_challenge : public customCreatureAI
         summons.DespawnAll();
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         DoCast(me, SPELL_BLINDSIDE, true);
         events.ScheduleEvent(EVENT_ARC, urand(1.5 * IN_MILLISECONDS, 3 * IN_MILLISECONDS));
@@ -1728,13 +1728,13 @@ struct npc_neltharions_tear : public ScriptedAI
 
     TaskScheduler scheduler;
     bool hasTriggered;
-    uint64 targetGUID;
-    uint64 summonerGUID;
+    ObjectGuid targetGUID;
+    ObjectGuid summonerGUID;
 
     void Reset() override
     {
         hasTriggered = false;
-        targetGUID = 0;
+        targetGUID = ObjectGuid::Empty;
     }
 
     void IsSummonedBy(Unit* summoner) override
@@ -1808,7 +1808,7 @@ struct npc_xuen_challenge_gong : public ScriptedAI
 
     void IsSummonedBy(Unit* summoner) override
     {
-        me->ToTempSummon()->SetVisibleBySummonerOnly(true);
+        me->ToTempSummon()->SetPrivateObjectOwner(summoner->GetGUID());
         me->SetPhaseMask(4, true);
         me->SetFlag(UNIT_FIELD_NPC_FLAGS, UNIT_NPC_FLAG_SPELLCLICK);
     }
@@ -1835,13 +1835,13 @@ struct npc_wrathion_cloak_achieve : public ScriptedAI
     npc_wrathion_cloak_achieve(Creature* creature) : ScriptedAI(creature) { }
 
     TaskScheduler scheduler;
-    uint64 targetGUID;
+    ObjectGuid targetGUID;
     uint32 delay;
 
     void IsSummonedBy(Unit* summoner) override
     {
         targetGUID = summoner->GetGUID();
-        me->ToTempSummon()->SetVisibleBySummonerOnly(true);
+        me->ToTempSummon()->SetPrivateObjectOwner(summoner->GetGUID());
 
         // Here missed scene launch (celesial spirits in sky , launch by 142541, but miss PackageID)
         me->SetFacingTo(me->GetAngle(summoner));
@@ -2023,7 +2023,7 @@ struct npc_wrathion_celestial_spirits_cloak : public ScriptedAI
 
     void IsSummonedBy(Unit* summoner) override
     {
-        me->ToTempSummon()->SetVisibleBySummonerOnly(true);
+        me->ToTempSummon()->SetPrivateObjectOwner(summoner->GetGUID());
     }
 
     void DoAction(int32 actionId) override
@@ -2104,7 +2104,7 @@ struct npc_willy_wilder : public ScriptedAI
         });
     }
 
-    void EnterCombat(Unit* /*who*/) override
+    void JustEngagedWith(Unit* /*who*/) override
     {
         events.ScheduleEvent(EVENT_VIOLET_AND_BLUEBERRIES, urand(4 * IN_MILLISECONDS, 5 * IN_MILLISECONDS));
     }

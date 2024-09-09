@@ -65,13 +65,13 @@ public:
     {
         npc_injured_rainspeaker_oracleAI(Creature* creature) : npc_escortAI(creature) { c_guid = creature->GetGUID(); }
 
-        uint64 c_guid;
+        ObjectGuid c_guid;
 
         void Reset() override
         {
             me->RestoreFaction();
             // if we will have other way to assign this to only one npc remove this part
-            if (GUID_LOPART(me->GetGUID()) != 101030)
+            if (me->GetGUID().GetCounter() != 101030)
             {
                 me->RemoveFlag(UNIT_FIELD_NPC_FLAGS, UNIT_NPC_FLAG_QUESTGIVER);
                 me->RemoveFlag(UNIT_FIELD_NPC_FLAGS, UNIT_NPC_FLAG_GOSSIP);
@@ -510,8 +510,8 @@ public:
             sayStep = 0;
             timer = 0;
             phase = 0;
-            playerGUID = 0;
-            orphanGUID = 0;
+            playerGUID = ObjectGuid::Empty;
+            orphanGUID = ObjectGuid::Empty;
         }
 
         void MoveInLineOfSight(Unit* who) override
@@ -613,16 +613,22 @@ public:
             if (!quest)
                 return;
 
-            QuestStatusMap::const_iterator itr = player->getQuestStatusMap().find(QUEST_TASTE_TEST);
-            if (itr->second.Status != QUEST_STATUS_INCOMPLETE)
+            if (player->GetQuestStatus(QUEST_TASTE_TEST) != QUEST_STATUS_INCOMPLETE)
                 return;
 
-            if (!quest->GetQuestObjectiveXObjectId(me->GetEntry()))
-                return;
+            for (const auto& objective : quest->Objectives)
+            {
+                if (objective.ObjectID != me->GetEntry())
+                    continue;
 
-            player->KilledMonsterCredit(me->GetEntry(), 0);
-            player->Say(SAY_OFFER, LANG_UNIVERSAL);
-            sayStep = 1;
+                if (player->GetQuestObjectiveCounter(objective.ID) != 0)
+                    continue;
+
+                player->KilledMonsterCredit(me->GetEntry(), ObjectGuid::Empty);
+                player->Say(SAY_OFFER, LANG_UNIVERSAL);
+                sayStep = 1;
+                break;
+            }
         }
 
         private:
@@ -630,8 +636,8 @@ public:
             uint8 sayStep;
             uint32 timer;
             int8 phase;
-            uint64 playerGUID;
-            uint64 orphanGUID;
+            ObjectGuid playerGUID;
+            ObjectGuid orphanGUID;
     };
 
     CreatureAI* GetAI(Creature* creature) const override
@@ -912,7 +918,7 @@ public:
                     apple->CastSpell(apple, SPELL_APPLE_FALL);
                     wilhelm->AI()->Talk(SAY_WILHELM_HIT);
                     if (Player* player = shooter->ToPlayer())
-                        player->KilledMonsterCredit(NPC_APPLE, 0);
+                        player->KilledMonsterCredit(NPC_APPLE, ObjectGuid::Empty);
                     apple->DespawnOrUnsummon();
 
                     break;

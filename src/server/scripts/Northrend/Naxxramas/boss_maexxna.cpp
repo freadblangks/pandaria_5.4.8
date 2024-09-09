@@ -74,9 +74,9 @@ public:
 
         bool enraged;
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
-            _EnterCombat();
+            _JustEngagedWith();
             enraged = false;
             events.ScheduleEvent(EVENT_WRAP, 20000);
             events.ScheduleEvent(EVENT_SPRAY, 40000);
@@ -161,11 +161,11 @@ public:
 
     struct npc_webwrapAI : public NullCreatureAI
     {
-        npc_webwrapAI(Creature* creature) : NullCreatureAI(creature), victimGUID(0) { }
+        npc_webwrapAI(Creature* creature) : NullCreatureAI(creature), victimGUID() { }
 
-        uint64 victimGUID;
+        ObjectGuid victimGUID;
 
-        void SetGUID(uint64 guid, int32 /*param*/) override
+        void SetGUID(ObjectGuid guid, int32 /*param*/) override
         {
             victimGUID = guid;
             if (me->m_spells[0] && victimGUID)

@@ -107,58 +107,9 @@ class npc_master_shang_xi : public CreatureScript
         }
 };
 
-class go_wandering_weapon_rack : public GameObjectScript
-{
-    public:
-        go_wandering_weapon_rack() : GameObjectScript("go_wandering_weapon_rack") { }
-
-        bool OnGossipHello(Player* player, GameObject* /*go*/) override
-        {
-            if (player->GetQuestStatus(30027) == QUEST_STATUS_INCOMPLETE && !player->HasItemCount(73209))
-            {
-                player->AddItem(73209, 1);
-            }
-            else if (player->GetQuestStatus(30033) == QUEST_STATUS_INCOMPLETE && (!player->HasItemCount(76392) || !player->HasItemCount(76390)))
-            {
-                player->AddItem(76392, 1);
-                player->AddItem(76390, 1);
-            }
-            else if (player->GetQuestStatus(30034) == QUEST_STATUS_INCOMPLETE && !player->HasItemCount(73211))
-            {
-                player->AddItem(73211, 1);
-            }
-            else if (player->GetQuestStatus(30035) == QUEST_STATUS_INCOMPLETE && (!player->HasItemCount(76393) || !player->HasItemCount(73207)))
-            {
-                player->AddItem(76393, 1);
-                player->AddItem(73207, 1);
-            }
-            else if (player->GetQuestStatus(30036) == QUEST_STATUS_INCOMPLETE && (!player->HasItemCount(73212) || !player->HasItemCount(73208)))
-            {
-                player->AddItem(73212, 1);
-                player->AddItem(73208, 1);
-            }
-            else if (player->GetQuestStatus(30037) == QUEST_STATUS_INCOMPLETE && (!player->HasItemCount(73213) || !player->HasItemCount(76391)))
-            {
-                player->AddItem(73213, 1);
-                player->AddItem(76391, 1);
-            }
-            else if (player->GetQuestStatus(30038) == QUEST_STATUS_INCOMPLETE && !player->HasItemCount(73210))
-            {
-                player->AddItem(73210, 1);
-            }
-
-            return true;
-        }
-};
-
 struct npc_training_target : public ScriptedAI
 {
-    uint32 resetTimer;
-
-    npc_training_target(Creature* creature) : ScriptedAI(creature)
-    {
-        SetCombatMovement(false);
-    }
+    npc_training_target(Creature* creature) : ScriptedAI(creature), _resetTimer(0) { }
 
     void Reset() override
     {
@@ -168,17 +119,16 @@ struct npc_training_target : public ScriptedAI
         // imune to knock aways like blast wave
         me->ApplySpellImmune(0, IMMUNITY_EFFECT, SPELL_EFFECT_KNOCK_BACK, true);
 
-        me->m_Events.AddLambdaEventAtOffset([this]()
+        _scheduler.Schedule(500ms, [this](TaskContext /*task*/)
         {
             std::list<Creature*> trainees;
             me->GetCreaturesWithEntryInRange(trainees, 4.0f, 65469);
             me->GetCreaturesWithEntryInRange(trainees, 4.0f, 53565);
-
-            for (Creature* unit : trainees)
+            for (auto unit : trainees)
                 unit->AI()->SetData(1, 1);
-        }, 500);
+        });
 
-        resetTimer = 5 * IN_MILLISECONDS;
+        _resetTimer = 5 * IN_MILLISECONDS;
     }
 
     void EnterEvadeMode() override
@@ -192,221 +142,34 @@ struct npc_training_target : public ScriptedAI
         std::list<Creature*> trainees;
         me->GetCreaturesWithEntryInRange(trainees, 4.0f, 65469);
         me->GetCreaturesWithEntryInRange(trainees, 4.0f, 53565);
-
-        for (Creature* unit : trainees)
+        for (auto unit : trainees)
             unit->AI()->SetData(2, 2);
     }
 
     void DamageTaken(Unit* /*attacker*/, uint32& /*damage*/) override
     {
-        resetTimer = 5 * IN_MILLISECONDS;
+        _resetTimer = 5 * IN_MILLISECONDS;
     }
 
     void UpdateAI(uint32 diff) override
     {
+        _scheduler.Update(diff);
+
         if (!UpdateVictim())
             return;
 
-        if (!me->HasUnitState(UNIT_STATE_STUNNED))
-            me->SetControlled(true, UNIT_STATE_STUNNED);
-
-        if (resetTimer <= diff)
+        if (_resetTimer <= diff)
         {
             EnterEvadeMode();
-            resetTimer = 5000;
+            _resetTimer = 5000;
         }
         else
-            resetTimer -= diff;
+            _resetTimer -= diff;
     }
 
-    void MoveInLineOfSight(Unit* /*who*/) override { }
-};
-
-
-class npc_tushui_trainee : public CreatureScript
-{
-    public:
-        npc_tushui_trainee() : CreatureScript("npc_tushui_trainee") { }
-
-        struct npc_tushui_trainee_AI : public ScriptedAI
-        {
-            npc_tushui_trainee_AI(Creature* creature) : ScriptedAI(creature) { }
-
-            bool isInCombat;
-            uint32 punch1;
-            uint32 punch2;
-            uint32 punch3;
-
-            void Reset() override
-            {
-                punch1 = 1000;
-                punch2 = 3500;
-                punch3 = 6000;
-                isInCombat = false;
-
-                me->SetReactState(REACT_DEFENSIVE);
-                me->SetFaction(2357);
-                me->SetFullHealth();
-            }
-
-            void DamageTaken(Unit* attacker, uint32& damage) override
-            {
-                if (me->HealthBelowPctDamaged(16, damage))
-                {
-                    me->SetFaction(35);
-
-                    if (attacker && attacker->GetTypeId() == TYPEID_PLAYER)
-                        attacker->ToPlayer()->KilledMonsterCredit(54586, 0);
-
-                    Talk(0);
-
-                    damage = 0;
-
-                    me->DeleteThreatList();
-                    me->CombatStop();
-                    isInCombat = false;
-
-                    me->SetFullHealth();
-                    me->HandleEmoteCommand(EMOTE_ONESHOT_SALUTE);
-                    me->DespawnOrUnsummon(3000);
-                }
-            }
-
-            void EnterCombat(Unit* /*who*/) override
-            {
-                isInCombat = true;
-            }
-
-            void JustRespawned() override
-            {
-                Reset();
-            }
-
-            void UpdateAI(uint32 diff) override
-            {
-                if (isInCombat)
-                {
-                    if (!UpdateVictim())
-                        return;
-
-                    DoMeleeAttackIfReady();
-                }
-                else
-                {
-                    if (punch1 <= diff)
-                    {
-                        me->HandleEmoteCommand(35);
-                        punch1 = 7500;
-                    }
-                    else
-                        punch1 -= diff;
-
-                    if (punch2 <= diff)
-                    {
-                        me->HandleEmoteCommand(36);
-                        punch2 = 7500;
-                    }
-                    else
-                        punch2 -= diff;
-
-                    if (punch3 <= diff)
-                    {
-                        me->HandleEmoteCommand(37);
-                        punch3 = 7500;
-                    }
-                    else
-                        punch3 -= diff;
-                }
-            }
-        };
-
-        CreatureAI* GetAI(Creature* creature) const override
-        {
-            return new npc_tushui_trainee_AI(creature);
-        }
-};
-
-class npc_huojin_trainee : public CreatureScript
-{
-    public:
-        npc_huojin_trainee() : CreatureScript("npc_huojin_trainee") { }
-
-        struct npc_huojin_traineeAI : public ScriptedAI
-        {
-            npc_huojin_traineeAI(Creature* creature) : ScriptedAI(creature) { }
-
-            uint8 punch;
-            bool isInCombat;
-
-            void Reset() override
-            {
-                punch = urand(500, 3000);
-                isInCombat = false;
-
-                me->SetReactState(REACT_DEFENSIVE);
-                me->SetFaction(2357);
-                me->SetFullHealth();
-            }
-
-            void DamageTaken(Unit* attacker, uint32& damage) override
-            {
-                if (me->HealthBelowPctDamaged(16, damage))
-                {
-                    me->SetFaction(35);
-
-                    if (attacker && attacker->GetTypeId() == TYPEID_PLAYER)
-                        attacker->ToPlayer()->KilledMonsterCredit(54586, 0);
-
-                    Talk(0);
-
-                    damage = 0;
-
-                    me->DeleteThreatList();
-                    me->CombatStop();
-                    isInCombat = false;
-
-                    me->SetFullHealth();
-                    me->HandleEmoteCommand(EMOTE_ONESHOT_SALUTE);
-                    me->DespawnOrUnsummon(3000);
-                }
-            }
-
-            void EnterCombat(Unit* /*who*/) override
-            {
-                isInCombat = true;
-            }
-
-            void JustRespawned() override
-            {
-                Reset();
-            }
-
-            void UpdateAI(uint32 diff) override
-            {
-                if (isInCombat)
-                {
-                    if (!UpdateVictim())
-                        return;
-
-                    DoMeleeAttackIfReady();
-                }
-                else
-                {
-                    if (punch <= diff)
-                    {
-                        me->HandleEmoteCommand(35);
-                        punch = urand(500, 3000);
-                    }
-                    else
-                        punch -= diff;
-                }
-            }
-        };
-
-        CreatureAI* GetAI(Creature* creature) const override
-        {
-            return new npc_huojin_traineeAI(creature);
-        }
+private:
+    uint32 _resetTimer;
+    TaskScheduler _scheduler;
 };
 
 class boss_jaomin_ro : public CreatureScript
@@ -430,7 +193,7 @@ class boss_jaomin_ro : public CreatureScript
             EventMap events;
             bool isInFalcon;
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 events.ScheduleEvent(EVENT_JAOMIN_JUMP, 1000);
                 events.ScheduleEvent(EVENT_HIT_CIRCLE, 2000);
@@ -444,7 +207,7 @@ class boss_jaomin_ro : public CreatureScript
                 me->SetFaction(2357); //mechant!
             }
 
-            void MoveInLineOfSight(Unit*  who)
+            void MoveInLineOfSight(Unit*  who) override
             {
                 Player * const player = who->ToPlayer();
                 if (!player)
@@ -455,7 +218,7 @@ class boss_jaomin_ro : public CreatureScript
 
                 if (who->GetDistance(me) < 15.f)
                 {
-                    if (me->getStandState() != UNIT_STAND_STATE_STAND)
+                    if (me->GetStandState() != UNIT_STAND_STATE_STAND)
                     {
                         Talk(0);
                         me->SetStandState(UNIT_STAND_STATE_STAND);
@@ -481,7 +244,7 @@ class boss_jaomin_ro : public CreatureScript
                     std::list<Player*> playerList;
                     GetPlayerListInGrid(playerList, me, 10.0f);
                     for (auto&& player: playerList)
-                        player->KilledMonsterCredit(me->GetEntry(), 0);
+                        player->KilledMonsterCredit(me->GetEntry(), ObjectGuid::Empty);
 
                     Talk(1);
                     EnterEvadeMode();
@@ -769,7 +532,7 @@ class npc_aysa : public CreatureScript
                     events.ScheduleEvent(EVENT_START, 600); //Begin script
                 inCombat = false;
                 timer = 0;
-                lifeiGUID = 0;
+                lifeiGUID = ObjectGuid::Empty;
                 me->SetReactState(REACT_DEFENSIVE);
                 me->SetFaction(2263);
             }
@@ -777,7 +540,7 @@ class npc_aysa : public CreatureScript
             EventMap events;
             std::vector<Player*> playersInvolved;
 
-            uint64 lifeiGUID;
+            ObjectGuid lifeiGUID;
 
             bool inCombat;
             uint32 timer;
@@ -836,7 +599,7 @@ class npc_aysa : public CreatureScript
                     if (Creature* lifei = GetLifei())
                     {
                         lifei->DespawnOrUnsummon();
-                        lifeiGUID = 0;
+                        lifeiGUID = ObjectGuid::Empty;
                     }
                 }
             }
@@ -900,7 +663,7 @@ class npc_aysa : public CreatureScript
                                     if (i == 6)
                                     {
                                         lifei->DespawnOrUnsummon(500);
-                                        lifeiGUID = 0;
+                                        lifeiGUID = ObjectGuid::Empty;
                                     }
                                     break;
                                 }
@@ -923,7 +686,7 @@ class npc_aysa : public CreatureScript
                             if (Creature* lifei = GetLifei())
                             {
                                 lifei->DespawnOrUnsummon();
-                                lifeiGUID = 0;
+                                lifeiGUID = ObjectGuid::Empty;
                             }
 
                             events.ScheduleEvent(EVENT_START, 10000);
@@ -935,7 +698,7 @@ class npc_aysa : public CreatureScript
                             UpdatePlayerList();
                             for (auto&& player: playersInvolved)
                             {
-                                player->KilledMonsterCredit(NPC_MASTER_LI_FEI, 0);
+                                player->KilledMonsterCredit(NPC_MASTER_LI_FEI, ObjectGuid::Empty);
                                 player->RemoveAura(SPELL_MEDITATION_BAR);
                             }
                             break;
@@ -1009,7 +772,7 @@ class boss_li_fei_fight : public CreatureScript
                 {
                     auto unit = hostileRef->getTarget();
                     if (unit && unit->GetTypeId() == TYPEID_PLAYER)
-                        unit->ToPlayer()->KilledMonsterCredit(54734, 0);
+                        unit->ToPlayer()->KilledMonsterCredit(54734, ObjectGuid::Empty);
                 }
 
                 // TODO: it seems that spell 106275 is used to display a text message
@@ -1139,7 +902,7 @@ class AreaTrigger_at_temple_entrance : public AreaTriggerScript
         {
             if (player->GetQuestStatus(29423) == QUEST_STATUS_INCOMPLETE)
             {
-                player->KilledMonsterCredit(61128, 0);
+                player->KilledMonsterCredit(61128, ObjectGuid::Empty);
 
                 std::list<Creature*> huoList;
                 GetCreatureListWithEntryInGrid(huoList, player, 54958, 20.0f);
@@ -1172,7 +935,7 @@ class npc_trainee_nim : public CreatureScript
             npc_trainee_nimAI(Creature* creature) : ScriptedAI(creature) { }
             std::set<uint64> guids;
 
-            void MoveInLineOfSight(Unit*  who)
+            void MoveInLineOfSight(Unit* who) override
             {
                 Player * const player = who->ToPlayer();
                 if (!player)
@@ -1208,7 +971,7 @@ class npc_merchant_lorvo : public CreatureScript
             npc_merchant_lorvoAI(Creature* creature) : ScriptedAI(creature) { }
             std::set<uint64> guids;
 
-            void MoveInLineOfSight(Unit*  who)
+            void MoveInLineOfSight(Unit* who) override
             {
                 Player * const player = who->ToPlayer();
                 if (!player)
@@ -1294,11 +1057,11 @@ class spell_feet_of_fury : public SpellScriptLoader
         {
             PrepareAuraScript(spell_feet_of_fury_AuraScript)
 
-            uint64 targetGuid;
+            ObjectGuid targetGuid;
 
             bool Load() override
             {
-                targetGuid = 0;
+                targetGuid = ObjectGuid::Empty;
                 return true;
             }
 
@@ -1324,7 +1087,7 @@ class spell_feet_of_fury : public SpellScriptLoader
 
                 if (!target)
                 {
-                    targetGuid = 0;
+                    targetGuid = ObjectGuid::Empty;
                     return;
                 }
 
@@ -1348,10 +1111,7 @@ class spell_feet_of_fury : public SpellScriptLoader
 void AddSC_wandering_island_north()
 {
     new npc_master_shang_xi();
-    new go_wandering_weapon_rack();
-    new creature_script<npc_training_target>("npc_training_target");
-    new npc_tushui_trainee();
-    new npc_huojin_trainee();
+    RegisterCreatureAI(npc_training_target);
     new boss_jaomin_ro();
     new npc_attacker_dimwind();
     new npc_min_dimwind();

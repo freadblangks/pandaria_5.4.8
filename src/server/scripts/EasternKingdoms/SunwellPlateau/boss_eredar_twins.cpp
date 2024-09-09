@@ -105,7 +105,7 @@ class boss_sacrolash : public CreatureScript
 
                 if (instance)
                 {
-                    if (Creature* temp = Unit::GetCreature((*me), instance->GetData64(DATA_ALYTHESS)))
+                    if (Creature* temp = Unit::GetCreature((*me), instance->GetGuidData(DATA_ALYTHESS)))
                     {
                         if (temp->isDead())
                             temp->Respawn();
@@ -131,7 +131,7 @@ class boss_sacrolash : public CreatureScript
                     instance->SetData(DATA_EREDAR_TWINS_EVENT, NOT_STARTED);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (instance->GetData(DATA_KALECGOS_EVENT) != DONE || instance->GetData(DATA_BRUTALLUS_EVENT) != DONE || instance->GetData(DATA_FELMYST_EVENT) != DONE)
                 {
@@ -144,7 +144,7 @@ class boss_sacrolash : public CreatureScript
 
                 if (instance)
                 {
-                    Creature* temp =  Unit::GetCreature((*me),instance->GetData64(DATA_ALYTHESS));
+                    Creature* temp =  Unit::GetCreature((*me),instance->GetGuidData(DATA_ALYTHESS));
                     if (temp && temp->IsAlive() && !(temp->GetVictim()))
                         temp->AI()->AttackStart(who);
                 }
@@ -229,7 +229,7 @@ class boss_sacrolash : public CreatureScript
                 {
                     if (instance)
                     {
-                        Creature* temp = Unit::GetCreature((*me),instance->GetData64(DATA_ALYTHESS));
+                        Creature* temp = Unit::GetCreature((*me),instance->GetGuidData(DATA_ALYTHESS));
                         if (temp && temp->isDead())
                         {
                             Talk(YELL_SISTER_ALYTHESS_DEAD);
@@ -374,7 +374,7 @@ class boss_alythess : public CreatureScript
 
                 if (instance)
                 {
-                    Creature* temp = Unit::GetCreature((*me),instance->GetData64(DATA_SACROLASH));
+                    Creature* temp = Unit::GetCreature((*me),instance->GetGuidData(DATA_SACROLASH));
                     if (temp)
                     {
                         if (temp->isDead())
@@ -402,7 +402,7 @@ class boss_alythess : public CreatureScript
                     instance->SetData(DATA_EREDAR_TWINS_EVENT, NOT_STARTED);
             }
 
-            void EnterCombat(Unit* who) override
+            void JustEngagedWith(Unit* who) override
             {
                 if (instance->GetData(DATA_KALECGOS_EVENT) != DONE || instance->GetData(DATA_BRUTALLUS_EVENT) != DONE || instance->GetData(DATA_FELMYST_EVENT) != DONE)
                 {
@@ -415,7 +415,7 @@ class boss_alythess : public CreatureScript
 
                 if (instance)
                 {
-                    Creature* temp =  Unit::GetCreature((*me),instance->GetData64(DATA_SACROLASH));
+                    Creature* temp =  Unit::GetCreature((*me),instance->GetGuidData(DATA_SACROLASH));
                     if (temp && temp->IsAlive() && !(temp->GetVictim()))
                         temp->AI()->AttackStart(who);
                 }
@@ -527,7 +527,7 @@ class boss_alythess : public CreatureScript
 
             uint32 IntroStep(uint32 step)
             {
-                Creature* sacrolash = Unit::GetCreature(*me, instance ? instance->GetData64(DATA_SACROLASH) : 0);
+                Creature* sacrolash = Unit::GetCreature(*me, instance ? instance->GetGuidData(DATA_SACROLASH) : ObjectGuid::Empty);
                 switch (step)
                 {
                     case 0: return 0;
@@ -569,7 +569,7 @@ class boss_alythess : public CreatureScript
                 {
                     if (instance)
                     {
-                        Unit* temp = Unit::GetUnit((*me),instance->GetData64(DATA_SACROLASH));
+                        Unit* temp = Unit::GetUnit((*me),instance->GetGuidData(DATA_SACROLASH));
                         if (temp && temp->isDead())
                         {
                             Talk(YELL_SISTER_SACROLASH_DEAD);
@@ -584,7 +584,7 @@ class boss_alythess : public CreatureScript
                 {
                     if (instance)
                     {
-                        Creature* sisiter = Unit::GetCreature((*me),instance->GetData64(DATA_SACROLASH));
+                        Creature* sisiter = Unit::GetCreature((*me),instance->GetGuidData(DATA_SACROLASH));
                         if (sisiter && !sisiter->isDead() && sisiter->GetVictim())
                         {
                             me->AddThreat(sisiter->GetVictim(),0.0f);
@@ -698,7 +698,7 @@ class npc_shadow_image : public CreatureScript
                 killTimer = 15000;
             }
 
-            void EnterCombat(Unit* /*who*/) override { }
+            void JustEngagedWith(Unit* /*who*/) override { }
 
             void SpellHitTarget(Unit* target, const SpellInfo* spell) override
             {

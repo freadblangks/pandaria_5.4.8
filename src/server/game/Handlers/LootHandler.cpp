@@ -33,7 +33,6 @@
 #include "ScriptMgr.h"
 #include "GridNotifiersImpl.h"
 #include "CellImpl.h"
-#include "CustomLogs.h"
 #ifdef ELUNA
 #include "HookMgr.h"
 #endif
@@ -82,9 +81,9 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recvData)
         if (it == lootView.end())
             continue;
 
-        uint64 guid = it->second;
+        ObjectGuid guid = it->second;
 
-        if (IS_GAMEOBJECT_GUID(guid))
+        if (guid.IsGameObject())
         {
             GameObject* go = player->GetMap()->GetGameObject(guid);
 
@@ -98,7 +97,7 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recvData)
             loot = &go->loot;
             src = go;
         }
-        else if (IS_ITEM_GUID(guid))
+        else if (guid.IsItem())
         {
             Item* pItem = player->GetItemByGuid(guid);
 
@@ -111,7 +110,7 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recvData)
             loot = &pItem->loot;
             src = pItem;
         }
-        else if (IS_CORPSE_GUID(guid))
+        else if (guid.IsCorpse())
         {
             Corpse* bones = ObjectAccessor::GetCorpse(*player, guid);
             if (!bones)
@@ -144,7 +143,7 @@ void WorldSession::HandleAutostoreLootItemOpcode(WorldPacket& recvData)
         player->StoreLootItem(lootSlot, loot, src, aoeLoot);
 
         // If player is removing the last LootItem, delete the empty container.
-        if (loot->isLooted() && IS_ITEM_GUID(guid))
+        if (loot->isLooted() && guid.IsItem())
             player->GetSession()->DoLootRelease(guid);
     }
 
@@ -163,22 +162,21 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 {
     TC_LOG_DEBUG("network", "WORLD: CMSG_LOOT_MONEY");
 
-    CurrencyOperation operation = CurrencyOperation::Null;
     uint32 param = 0;
 
     Player* player = GetPlayer();
 
     bool shareMoney = true;
     bool isAoE = player->GetLootView().size() > 1;
-    uint64 containerGuid = 0;
+    ObjectGuid containerGuid = ObjectGuid::Empty;
     for (auto&& it : player->GetLootView())
     {
         Loot* loot = nullptr;
-        uint64 guid = it.second;
+        ObjectGuid guid = it.second;
 
-        switch (GUID_HIPART(guid))
+        switch (guid.GetHigh())
         {
-            case HIGHGUID_GAMEOBJECT:
+            case HighGuid::GameObject:
             {
                 GameObject* go = GetPlayer()->GetMap()->GetGameObject(guid);
 
@@ -188,7 +186,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
                 break;
             }
-            case HIGHGUID_CORPSE:                               // remove insignia ONLY in BG
+            case HighGuid::Corpse:                               // remove insignia ONLY in BG
             {
                 Corpse* bones = ObjectAccessor::GetCorpse(*player, guid);
 
@@ -200,20 +198,19 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
                 break;
             }
-            case HIGHGUID_ITEM:
+            case HighGuid::Item:
             {
                 if (Item* item = player->GetItemByGuid(guid))
                 {
                     loot = &item->loot;
                     shareMoney = false;
 
-                    operation = CurrencyOperation::LootItem;
                     param = item->GetEntry();
                 }
                 break;
             }
-            case HIGHGUID_UNIT:
-            case HIGHGUID_VEHICLE:
+            case HighGuid::Unit:
+            case HighGuid::Vehicle:
             {
                 Creature* creature = player->GetMap()->GetCreature(guid);
                 bool lootAllowed = creature && creature->IsAlive() == (player->GetClass() == CLASS_ROGUE && creature->lootForPickPocketed);
@@ -223,7 +220,6 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
                     loot = &creature->loot;
                     if (creature->IsAlive())
                         shareMoney = false;
-                    operation = CurrencyOperation::LootMob;
                     param = creature->GetEntry();
                 }
                 break;
@@ -258,8 +254,8 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
 
             for (auto&& groupMember : playersNear)
             {
-                if (groupMember->ModifyMoney(goldPerPlayer))
-                    logs::CurrencyTransaction(groupMember, operation, param, int64(goldPerPlayer));
+                groupMember->ModifyMoney(goldPerPlayer);
+
                 groupMember->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, goldPerPlayer);
 
                 if (Guild* guild = sGuildMgr->GetGuildById(groupMember->GetGuildId()))
@@ -272,16 +268,12 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
                 data << uint32(goldPerPlayer);
                 groupMember->GetSession()->SendPacket(&data);
 
-                if (group->IsLogging())
-                    playerNames << (playerNamesStarted ? ", " : (playerNamesStarted = true, "")) << Group::Format(groupMember);
             }
-            if (group->IsLogging())
-                group->LogEvent("Money looted: %s split to %s for %s", Group::FormatMoney(loot->gold).c_str(), Group::FormatMoney(goldPerPlayer).c_str(), playerNames.str().c_str());
         }
         else
         {
-            if (player->ModifyMoney(loot->gold))
-                logs::CurrencyTransaction(player, operation, param, int64(loot->gold));
+            player->ModifyMoney(loot->gold);
+
             player->UpdateAchievementCriteria(ACHIEVEMENT_CRITERIA_TYPE_LOOT_MONEY, loot->gold);
 
             if (Guild* guild = sGuildMgr->GetGuildById(player->GetGuildId()))
@@ -294,9 +286,6 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
             data << uint32(loot->gold);
             SendPacket(&data);
 
-            if (Group* group = player->GetGroup())
-                if (group->IsLogging())
-                    group->LogEvent("Money looted: %s by %s", Group::FormatMoney(loot->gold).c_str(), Group::Format(player).c_str());
         }
 
 #ifdef ELUNA
@@ -309,7 +298,7 @@ void WorldSession::HandleLootMoneyOpcode(WorldPacket& /*recvData*/)
             loot->DeleteLootMoneyFromContainerItemDB();
 
         // Delete container if empty
-        if (loot->isLooted() && IS_ITEM_GUID(guid))
+        if (loot->isLooted() && guid.IsItem())
             containerGuid = guid;
     }
 
@@ -426,13 +415,13 @@ void WorldSession::HandleLootReleaseOpcode(WorldPacket& recvData)
     }
 }
 
-void WorldSession::DoLootRelease(uint64 guid)
+void WorldSession::DoLootRelease(ObjectGuid guid)
 {
     Player  *player = GetPlayer();
     Loot    *loot;
 
     if (player->GetLootGUID() == guid)
-        player->SetLootGUID(0);
+        player->SetLootGUID(ObjectGuid::Empty);
     player->SendLootRelease(guid);
 
     player->RemoveFlag(UNIT_FIELD_FLAGS, UNIT_FLAG_LOOTING);
@@ -442,7 +431,7 @@ void WorldSession::DoLootRelease(uint64 guid)
     if (!player->IsInWorld())
         return;
 
-    if (IS_GAMEOBJECT_GUID(guid))
+    if (guid.IsGameObject())
     {
         GameObject* go = GetPlayer()->GetMap()->GetGameObject(guid);
 
@@ -496,7 +485,7 @@ void WorldSession::DoLootRelease(uint64 guid)
             }
         }
     }
-    else if (IS_CORPSE_GUID(guid))        // ONLY remove insignia at BG
+    else if (guid.IsCorpse())        // ONLY remove insignia at BG
     {
         Corpse* corpse = ObjectAccessor::GetCorpse(*player, guid);
         if (!corpse || !corpse->IsWithinDistInMap(_player, INTERACTION_DISTANCE))
@@ -510,7 +499,7 @@ void WorldSession::DoLootRelease(uint64 guid)
             corpse->RemoveFlag(CORPSE_FIELD_DYNAMIC_FLAGS, CORPSE_DYNFLAG_LOOTABLE);
         }
     }
-    else if (IS_ITEM_GUID(guid))
+    else if (guid.IsItem())
     {
         Item* pItem = player->GetItemByGuid(guid);
         if (!pItem)
@@ -599,7 +588,12 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recvData)
     }
 
     ObjectGuid targetGuid;
-    recvData.ReadGuidMask(targetGuid, 0, 2, 4, 1, 7, 6);
+    targetGuid[0] = recvData.ReadBit();
+    targetGuid[2] = recvData.ReadBit();
+    targetGuid[4] = recvData.ReadBit();
+    targetGuid[1] = recvData.ReadBit();
+    targetGuid[7] = recvData.ReadBit();
+    targetGuid[6] = recvData.ReadBit();
     uint32 size = recvData.ReadBits(23);
 
     std::vector<ObjectGuid> lootViews;
@@ -608,17 +602,39 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recvData)
     {
         lootViews.emplace_back();
         auto& g = lootViews.back();
-        recvData.ReadGuidMask(g, 6, 1, 7, 0, 3, 4, 5, 2);
+        g[6] = recvData.ReadBit();
+        g[1] = recvData.ReadBit();
+        g[7] = recvData.ReadBit();
+        g[0] = recvData.ReadBit();
+        g[3] = recvData.ReadBit();
+        g[4] = recvData.ReadBit();
+        g[5] = recvData.ReadBit();
+        g[2] = recvData.ReadBit();
     }
-    recvData.ReadGuidMask(targetGuid, 3, 5);
+    targetGuid[3] = recvData.ReadBit();
+    targetGuid[5] = recvData.ReadBit();
     for (auto&& g : lootViews)
     {
         uint8 slot;
         recvData >> slot;
         slots.push_back(slot);
-        recvData.ReadGuidBytes(g, 3, 0, 6, 7, 1, 4, 2, 5);
+        recvData.ReadByteSeq(g[3]);
+        recvData.ReadByteSeq(g[0]);
+        recvData.ReadByteSeq(g[6]);
+        recvData.ReadByteSeq(g[7]);
+        recvData.ReadByteSeq(g[1]);
+        recvData.ReadByteSeq(g[4]);
+        recvData.ReadByteSeq(g[2]);
+        recvData.ReadByteSeq(g[5]);
     }
-    recvData.ReadGuidBytes(targetGuid, 4, 5, 2, 3, 6, 0, 7, 1);
+    recvData.ReadByteSeq(targetGuid[4]);
+    recvData.ReadByteSeq(targetGuid[5]);
+    recvData.ReadByteSeq(targetGuid[2]);
+    recvData.ReadByteSeq(targetGuid[3]);
+    recvData.ReadByteSeq(targetGuid[6]);
+    recvData.ReadByteSeq(targetGuid[0]);
+    recvData.ReadByteSeq(targetGuid[7]);
+    recvData.ReadByteSeq(targetGuid[1]);
 
     Player* target = ObjectAccessor::FindPlayer(targetGuid);
     if (!target)
@@ -636,9 +652,9 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recvData)
 
         Loot* loot = nullptr;
 
-        uint64 lootguid = it->second;
+        ObjectGuid lootguid = it->second;
         WorldObject* lootedObject = nullptr;
-        if (IS_CRE_OR_VEH_GUID(lootguid))
+        if (lootguid.IsCreatureOrVehicle())
         {
             Creature* creature = GetPlayer()->GetMap()->GetCreature(lootguid);
             if (!creature)
@@ -647,7 +663,7 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recvData)
             lootedObject = creature;
             loot = &creature->loot;
         }
-        else if (IS_GAMEOBJECT_GUID(lootguid))
+        else if (lootguid.IsGameObject())
         {
             GameObject* pGO = GetPlayer()->GetMap()->GetGameObject(lootguid);
             if (!pGO)
@@ -707,10 +723,6 @@ void WorldSession::HandleLootMasterGiveOpcode(WorldPacket& recvData)
 
         if (target->HasPendingBind())
             target->BindToInstance();
-
-        if (Group* group = target->GetGroup())
-            if (group->IsLogging() && newitem)
-                group->LogEvent("Master looter gave item: %s to %s", Group::Format(newitem).c_str(), Group::Format(target).c_str());
 
         sScriptMgr->OnItemPickup(target, newitem, loot->GetItemPickupSourceType(), loot->sourceEntry);
 #ifdef ELUNA

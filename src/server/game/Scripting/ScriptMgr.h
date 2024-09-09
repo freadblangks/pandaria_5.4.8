@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -19,14 +19,14 @@
 #define SC_SCRIPTMGR_H
 
 #include "Common.h"
-#include <ace/Singleton.h>
-#include <ace/Atomic_Op.h>
+#include "ObjectGuid.h"
+#include <atomic>
 
 #include "DBCStores.h"
 #include "SharedDefines.h"
-#include "World.h"
+#include "Types.h"
+#include "Tuples.h"
 #include "Weather.h"
-#include "ItemPrototype.h"
 #include "WorldStateBuilder.h"
 
 class AreaTrigger;
@@ -59,9 +59,14 @@ class SpellCastTargets;
 class Transport;
 class Unit;
 class Vehicle;
+class Weather;
 class WorldPacket;
 class WorldSocket;
 class WorldObject;
+class WorldSession;
+
+enum class QuestGiverStatus : uint32;
+enum QuestStatus : uint8;
 
 struct AuctionEntry;
 struct ConditionSourceInfo;
@@ -70,6 +75,7 @@ struct ItemTemplate;
 struct OutdoorPvPData;
 struct SceneTemplate;
 struct GameEventData;
+struct QuestObjective;
 
 #define VISIBLE_RANGE       166.0f                          //MAX visible range (size of grid)
 
@@ -156,22 +162,12 @@ class ScriptObject
 
     public:
 
-        // Do not override this in scripts; it should be overridden by the various script type classes. It indicates
-        // whether or not this script type must be assigned in the database.
-        virtual bool IsDatabaseBound() const { return false; }
-
         const std::string& GetName() const { return _name; }
 
     protected:
 
-        ScriptObject(const char* name)
-            : _name(name)
-        {
-        }
-
-        virtual ~ScriptObject()
-        {
-        }
+        ScriptObject(char const* name);
+        virtual ~ScriptObject();
 
     private:
 
@@ -199,8 +195,6 @@ class SpellScriptLoader : public ScriptObject
 
     public:
 
-        bool IsDatabaseBound() const final { return true; }
-
         // Should return a fully valid SpellScript pointer.
         virtual SpellScript* GetSpellScript() const { return NULL; }
 
@@ -223,19 +217,19 @@ class ServerScript : public ScriptObject
         virtual void OnNetworkStop() { }
 
         // Called when a remote socket establishes a connection to the server. Do not store the socket object.
-        virtual void OnSocketOpen(WorldSocket* /*socket*/) { }
+        virtual void OnSocketOpen(std::shared_ptr<WorldSocket> /*socket*/) { }
 
         // Called when a socket is closed. Do not store the socket object, and do not rely on the connection
         // being open; it is not.
-        virtual void OnSocketClose(WorldSocket* /*socket*/, bool /*wasNew*/) { }
+        virtual void OnSocketClose(std::shared_ptr<WorldSocket> /*socket*/) { }
 
         // Called when a packet is sent to a client. The packet object is a copy of the original packet, so reading
         // and modifying it is safe.
-        virtual void OnPacketSend(WorldSocket* /*socket*/, WorldPacket& /*packet*/) { }
+        virtual void OnPacketSend(WorldSession* /*socket*/, WorldPacket& /*packet*/) { }
 
         // Called when a (valid) packet is received by a client. The packet object is a copy of the original packet, so
         // reading and modifying it is safe.
-        virtual void OnPacketReceive(WorldSocket* /*socket*/, WorldPacket& /*packet*/) { }
+        virtual void OnPacketReceive(WorldSession* /*socket*/, WorldPacket& /*packet*/) { }
 
         // Called when an invalid (unknown opcode) packet is received by a client. The packet is a reference to the orignal
         // packet; not a copy. This allows you to actually handle unknown packets (for whatever purpose).
@@ -353,10 +347,6 @@ class WorldMapScript : public ScriptObject, public MapScript<Map>
     protected:
 
         WorldMapScript(const char* name, uint32 mapId);
-
-    public:
-
-        bool IsDatabaseBound() const final { return true; } 
 };
 
 class InstanceMapScript : public ScriptObject, public MapScript<InstanceMap>
@@ -366,8 +356,6 @@ class InstanceMapScript : public ScriptObject, public MapScript<InstanceMap>
         InstanceMapScript(const char* name, uint32 mapId);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Gets an InstanceScript object for this instance.
         virtual InstanceScript* GetInstanceScript(InstanceMap* /*map*/) const { return NULL; }
@@ -387,8 +375,6 @@ class ItemScript : public ScriptObject
         ItemScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Called when a dummy spell effect is triggered on the item.
         virtual bool OnDummyEffect(Unit* /*caster*/, uint32 /*spellId*/, SpellEffIndex /*effIndex*/, Item* /*target*/) { return false; }
@@ -435,15 +421,13 @@ class UnitScript : public ScriptObject
         virtual void ModifySpellDamageTaken(Unit* /*target*/, Unit* /*attacker*/, int32& /*damage*/) { }
 };
 
-class CreatureScript : public UnitScript, public UpdatableScript<Creature>
+class CreatureScript : public ScriptObject
 {
     protected:
 
         CreatureScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Called when a dummy spell effect is triggered on the creature.
         virtual bool OnDummyEffect(Unit* /*caster*/, uint32 /*spellId*/, SpellEffIndex /*effIndex*/, Creature* /*target*/) { return false; }
@@ -470,7 +454,7 @@ class CreatureScript : public UnitScript, public UpdatableScript<Creature>
         virtual bool OnQuestReward(Player* /*player*/, Creature* /*creature*/, Quest const* /*quest*/, uint32 /*opt*/) { return false; }
 
         // Called when the dialog status between a player and the creature is requested.
-        virtual uint32 GetDialogStatus(Player* /*player*/, Creature* /*creature*/) { return 100; }
+        virtual Optional<QuestGiverStatus> GetDialogStatus(Player* /*player*/, Creature* /*creature*/) { return {}; }
 
         // Called when a CreatureAI object is needed for the creature.
         virtual CreatureAI* GetAI(Creature* /*creature*/) const { return NULL; }
@@ -483,8 +467,6 @@ class GameObjectScript : public ScriptObject, public UpdatableScript<GameObject>
         GameObjectScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Called when a dummy spell effect is triggered on the gameobject.
         virtual bool OnDummyEffect(Unit* /*caster*/, uint32 /*spellId*/, SpellEffIndex /*effIndex*/, GameObject* /*target*/) { return false; }
@@ -508,7 +490,7 @@ class GameObjectScript : public ScriptObject, public UpdatableScript<GameObject>
         virtual bool OnQuestReward(Player* /*player*/, GameObject* /*go*/, Quest const* /*quest*/, uint32 /*opt*/) { return false; }
 
         // Called when the dialog status between a player and the gameobject is requested.
-        virtual uint32 GetDialogStatus(Player* /*player*/, GameObject* /*go*/) { return 100; }
+        virtual Optional<QuestGiverStatus> GetDialogStatus(Player* /*player*/, GameObject* /*go*/) { return {}; }
 
         // Called when the game object is destroyed (destructible buildings only).
         virtual void OnDestroyed(GameObject* /*go*/, Player* /*player*/) { }
@@ -534,10 +516,11 @@ class AreaTriggerScript : public ScriptObject
 
     public:
 
-        bool IsDatabaseBound() const final { return true; }
-
         // Called when the area trigger is activated by a player.
         virtual bool OnTrigger(Player* /*player*/, AreaTriggerEntry const* /*trigger*/) { return false; }
+
+        // Called when the area trigger is left by a player.
+        virtual bool OnExit(Player* player, AreaTriggerEntry const* trigger) { return false; }
 };
 
 class SpellAreaTriggerScript : public ScriptObject
@@ -547,8 +530,6 @@ class SpellAreaTriggerScript : public ScriptObject
         SpellAreaTriggerScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Called when the area trigger is created
         virtual IAreaTrigger* GetInterface() const { return NULL; }
@@ -562,8 +543,6 @@ class BattlegroundScript : public ScriptObject
 
     public:
 
-        bool IsDatabaseBound() const final { return true; }
-
         // Should return a fully valid Battleground object for the type ID.
         virtual Battleground* GetBattleground() const = 0;
 };
@@ -575,8 +554,6 @@ class OutdoorPvPScript : public ScriptObject
         OutdoorPvPScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Should return a fully valid OutdoorPvP object for the type ID.
         virtual OutdoorPvP* GetOutdoorPvP() const = 0;
@@ -601,8 +578,6 @@ class WeatherScript : public ScriptObject, public UpdatableScript<Weather>
         WeatherScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Called when the weather changes in the zone this script is associated with.
         virtual void OnChange(Weather* /*weather*/, WeatherState /*state*/, float /*grade*/) { }
@@ -637,10 +612,8 @@ class ConditionScript : public ScriptObject
 
     public:
 
-        bool IsDatabaseBound() const final { return true; }
-
         // Called when a single condition is checked for a player.
-        virtual bool OnConditionCheck(Condition* /*condition*/, ConditionSourceInfo& /*sourceInfo*/) { return true; }
+        virtual bool OnConditionCheck(const Condition* /*condition*/, ConditionSourceInfo& /*sourceInfo*/) { return true; }
 };
 
 class VehicleScript : public ScriptObject
@@ -650,8 +623,6 @@ class VehicleScript : public ScriptObject
         VehicleScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const { return true; }
 
         // Called after a vehicle is installed.
         virtual void OnInstall(Vehicle* /*veh*/) { }
@@ -692,8 +663,6 @@ class TransportScript : public ScriptObject, public UpdatableScript<Transport>
 
     public:
 
-        bool IsDatabaseBound() const final { return true; }
-
         // Called when the transport is first created, before being added to map.
         virtual void OnCreate(Transport* transport) { }
 
@@ -717,8 +686,6 @@ class AchievementCriteriaScript : public ScriptObject
         AchievementCriteriaScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Called when an additional criteria is checked.
         virtual bool OnCheck(Player* source, Unit* target) = 0;
@@ -800,7 +767,7 @@ class PlayerScript : public UnitScript
         // Both of the below are called on emote opcodes.
         virtual void OnEmote(Player* /*player*/, uint32 /*emote*/) { }
 
-        virtual void OnTextEmote(Player* /*player*/, uint32 /*textEmote*/, uint32 /*emoteNum*/, uint64 /*guid*/) { }
+        virtual void OnTextEmote(Player* /*player*/, uint32 /*textEmote*/, uint32 /*emoteNum*/, ObjectGuid /*guid*/) { }
 
         // Called in Spell::Cast.
         virtual void OnSpellCast(Player* /*player*/, Spell* /*spell*/, bool /*skipCheck*/) { }
@@ -815,7 +782,7 @@ class PlayerScript : public UnitScript
         virtual void OnCreate(Player* /*player*/) { }
 
         // Called when a player is deleted.
-        virtual void OnDelete(uint64 /*guid*/) { }
+        virtual void OnDelete(ObjectGuid /*guid*/) { }
 
         // Called when a player is about to be saved.
         virtual void OnSave(Player* /*player*/) { }
@@ -845,8 +812,6 @@ class GuildScript : public ScriptObject
         GuildScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return false; }
 
         // Called when a member is added to the guild.
         virtual void OnAddMember(Guild* /*guild*/, Player* /*player*/, uint8& /*plRank*/) { }
@@ -889,19 +854,17 @@ class GroupScript : public ScriptObject
 
     public:
 
-        bool IsDatabaseBound() const final { return false; }
-
         // Called when a member is added to a group.
-        virtual void OnAddMember(Group* /*group*/, uint64 /*guid*/) { }
+        virtual void OnAddMember(Group* /*group*/, ObjectGuid /*guid*/) { }
 
         // Called when a member is invited to join a group.
-        virtual void OnInviteMember(Group* /*group*/, uint64 /*guid*/) { }
+        virtual void OnInviteMember(Group* /*group*/, ObjectGuid /*guid*/) { }
 
         // Called when a member is removed from a group.
-        virtual void OnRemoveMember(Group* /*group*/, uint64 /*guid*/, RemoveMethod /*method*/, uint64 /*kicker*/, const char* /*reason*/) { }
+        virtual void OnRemoveMember(Group* /*group*/, ObjectGuid /*guid*/, RemoveMethod /*method*/, ObjectGuid /*kicker*/, const char* /*reason*/) { }
 
         // Called when the leader of a group is changed.
-        virtual void OnChangeLeader(Group* /*group*/, uint64 /*newLeaderGuid*/, uint64 /*oldLeaderGuid*/) { }
+        virtual void OnChangeLeader(Group* /*group*/, ObjectGuid /*newLeaderGuid*/, ObjectGuid /*oldLeaderGuid*/) { }
 
         // Called when a group is disbanded.
         virtual void OnDisband(Group* /*group*/) { }
@@ -914,8 +877,6 @@ class SceneScript : public ScriptObject
         SceneScript(const char* name);
 
     public:
-
-        bool IsDatabaseBound() const final { return true; }
 
         // Called when a player start a scene
         virtual void OnSceneStart(Player* /*player*/, uint32 /*sceneInstanceID*/, SceneTemplate const* /*sceneTemplate*/) { }
@@ -930,13 +891,27 @@ class SceneScript : public ScriptObject
         virtual void OnSceneComplete(Player* /*player*/, uint32 /*sceneInstanceID*/, SceneTemplate const* /*sceneTemplate*/) { }
 };
 
+class QuestScript : public ScriptObject
+{
+    protected:
+
+        QuestScript(const char* name);
+
+    public:
+
+        // Called when a quest status change
+        virtual void OnQuestStatusChange(Player* /*player*/, Quest const* /*quest*/, QuestStatus /*oldStatus*/, QuestStatus /*newStatus*/) { }
+
+        // Called when a quest objective data change
+        virtual void OnQuestObjectiveChange(Player* /*player*/, Quest const* /*quest*/, QuestObjective const* /*objective*/, int32 /*oldAmount*/, int32 /*newAmount*/) { }
+};
+
 class GameEventScript : public ScriptObject
 {
     protected:
         GameEventScript(const char* name);
 
     public:
-        bool IsDatabaseBound() const { return true; }
 
         // Called on every GameEventMgr update to check if the event should be active.
         // shouldStart parameter specifies whether the time checks have passed.
@@ -979,12 +954,12 @@ protected:
 public:
 
     // items
-    virtual void OnItemDelFromDB(SQLTransaction& /*trans*/, uint32 /*itemGuid*/) { }
+    virtual void OnItemDelFromDB(CharacterDatabaseTransaction /*trans*/, ObjectGuid /*itemGuid*/) { }
     virtual void OnMirrorImageDisplayItem(const Item* /*item*/, uint32& /*display*/) { }
 };
 
 // Placed here due to ScriptRegistry::AddScript dependency.
-#define sScriptMgr ACE_Singleton<ScriptMgr, ACE_Null_Mutex>::instance()
+#define sScriptMgr ScriptMgr::instance()
 
 typedef std::vector<ScriptObject*> UnusedScriptContainer;
 typedef std::list<std::string> UnusedScriptNamesContainer;
@@ -993,9 +968,8 @@ extern UnusedScriptContainer UnusedScripts;
 extern UnusedScriptNamesContainer UnusedScriptNames;
 
 // Manages registration, loading, and execution of scripts.
-class ScriptMgr
+class TC_GAME_API ScriptMgr
 {
-    friend class ACE_Singleton<ScriptMgr, ACE_Null_Mutex>;
     friend class ScriptObject;
 
     private:
@@ -1003,16 +977,19 @@ class ScriptMgr
         ScriptLoader _scriptLoader;
         ScriptMgr();
         virtual ~ScriptMgr();
+
     public: /* Initialization */
-        // static ScriptMgr* instance(); TODO cause link issue
+        static ScriptMgr* instance();
         void SetLoader(ScriptLoader loader) { _scriptLoader = loader; }
         void Initialize();
         void LoadDatabase();
         void FillSpellSummary();
 
+        void IncreaseScriptCount() { ++_scriptCount; }
+        void DecreaseScriptCount() { --_scriptCount; }
+
         const char* ScriptsVersion() const { return "Integrated Trinity Scripts"; }
 
-        void IncrementScriptCount() { ++_scriptCount; }
         uint32 GetScriptCount() const { return _scriptCount; }
 
     public: /* Unloading */
@@ -1030,10 +1007,10 @@ class ScriptMgr
 
         void OnNetworkStart();
         void OnNetworkStop();
-        void OnSocketOpen(WorldSocket* socket);
-        void OnSocketClose(WorldSocket* socket, bool wasNew);
-        void OnPacketReceive(WorldSocket* socket, WorldPacket packet);
-        void OnPacketSend(WorldSocket* socket, WorldPacket packet);
+        void OnSocketOpen(std::shared_ptr<WorldSocket>);
+        void OnSocketClose(std::shared_ptr<WorldSocket>);
+        void OnPacketReceive(WorldSession* session, WorldPacket packet);
+        void OnPacketSend(WorldSession* session, WorldPacket packet);
         void OnUnknownPacketReceive(WorldSocket* socket, WorldPacket packet);
 
     public: /* WorldScript */
@@ -1091,9 +1068,8 @@ class ScriptMgr
         bool OnQuestSelect(Player* player, Creature* creature, Quest const* quest);
         bool OnQuestComplete(Player* player, Creature* creature, Quest const* quest);
         bool OnQuestReward(Player* player, Creature* creature, Quest const* quest, uint32 opt);
-        uint32 GetDialogStatus(Player* player, Creature* creature);
+        Optional<QuestGiverStatus> GetDialogStatus(Player* player, Creature* creature);
         CreatureAI* GetCreatureAI(Creature* creature);
-        void OnCreatureUpdate(Creature* creature, uint32 diff);
 
     public: /* GameObjectScript */
 
@@ -1104,7 +1080,7 @@ class ScriptMgr
         bool OnGossipSelectCode(Player* player, GameObject* go, uint32 sender, uint32 action, const char* code);
         bool OnQuestAccept(Player* player, GameObject* go, Quest const* quest);
         bool OnQuestReward(Player* player, GameObject* go, Quest const* quest, uint32 opt);
-        uint32 GetDialogStatus(Player* player, GameObject* go);
+        Optional<QuestGiverStatus> GetDialogStatus(Player* player, GameObject* go);
         void OnGameObjectDestroyed(GameObject* go, Player* player);
         void OnGameObjectDamaged(GameObject* go, Player* player);
         void OnGameObjectLootStateChanged(GameObject* go, uint32 state, Unit* unit);
@@ -1114,7 +1090,7 @@ class ScriptMgr
 
     public: /* AreaTriggerScript */
 
-        bool OnAreaTrigger(Player* player, AreaTriggerEntry const* trigger);
+        bool OnAreaTrigger(Player* player, AreaTriggerEntry const* trigger, bool entered);
 
     public: /* SpellAreaTriggerScript */
 
@@ -1148,7 +1124,7 @@ class ScriptMgr
 
     public: /* ConditionScript */
 
-        bool OnConditionCheck(Condition* condition, ConditionSourceInfo& sourceInfo);
+        bool OnConditionCheck(const Condition* condition, ConditionSourceInfo& sourceInfo);
 
     public: /* VehicleScript */
 
@@ -1202,12 +1178,12 @@ class ScriptMgr
         void OnPlayerChat(Player* player, uint32 type, uint32 lang, std::string& msg, Guild* guild);
         void OnPlayerChat(Player* player, uint32 type, uint32 lang, std::string& msg, Channel* channel);
         void OnPlayerEmote(Player* player, uint32 emote);
-        void OnPlayerTextEmote(Player* player, uint32 textEmote, uint32 emoteNum, uint64 guid);
+        void OnPlayerTextEmote(Player* player, uint32 textEmote, uint32 emoteNum, ObjectGuid guid);
         void OnPlayerSpellCast(Player* player, Spell* spell, bool skipCheck);
         void OnPlayerLogin(Player* player);
         void OnPlayerLogout(Player* player);
         void OnPlayerCreate(Player* player);
-        void OnPlayerDelete(uint64 guid);
+        void OnPlayerDelete(ObjectGuid guid);
         void OnPlayerSave(Player* player);
         void OnPlayerBindToInstance(Player* player, Difficulty difficulty, uint32 mapid, bool permanent);
         void OnPlayerUpdateZone(Player* player, uint32 newZone, uint32 newArea);
@@ -1232,10 +1208,10 @@ class ScriptMgr
 
     public: /* GroupScript */
 
-        void OnGroupAddMember(Group* group, uint64 guid);
-        void OnGroupInviteMember(Group* group, uint64 guid);
-        void OnGroupRemoveMember(Group* group, uint64 guid, RemoveMethod method, uint64 kicker, const char* reason);
-        void OnGroupChangeLeader(Group* group, uint64 newLeaderGuid, uint64 oldLeaderGuid);
+        void OnGroupAddMember(Group* group, ObjectGuid guid);
+        void OnGroupInviteMember(Group* group, ObjectGuid guid);
+        void OnGroupRemoveMember(Group* group, ObjectGuid guid, RemoveMethod method, ObjectGuid kicker, const char* reason);
+        void OnGroupChangeLeader(Group* group, ObjectGuid newLeaderGuid, ObjectGuid oldLeaderGuid);
         void OnGroupDisband(Group* group);
 
     public: /* GameEventScript */
@@ -1249,7 +1225,7 @@ class ScriptMgr
         void FillGameEventWorldStates(GameEventData const& event, Player* player, WorldStateBuilder& builder);
 
     public: /* GlobalScript */
-        void OnGlobalItemDelFromDB(SQLTransaction& trans, uint32 itemGuid);
+        void OnGlobalItemDelFromDB(CharacterDatabaseTransaction trans, ObjectGuid itemGuid);
         void OnGlobalMirrorImageDisplayItem(const Item *item, uint32 &display);
 
     public: /* UnitScript */
@@ -1273,6 +1249,10 @@ class ScriptMgr
         void OnSceneCancel(Player* player, uint32 sceneInstanceID, SceneTemplate const* sceneTemplate);
         void OnSceneComplete(Player* player, uint32 sceneInstanceID, SceneTemplate const* sceneTemplate);
 
+    public: /* QuestScript */
+        void OnQuestStatusChange(Player* player, Quest const* quest, QuestStatus oldStatus, QuestStatus newStatus);
+        void OnQuestObjectiveChange(Player* player, Quest const* quest, QuestObjective const* objective, int32 oldAmount, int32 newAmount);
+
     public:
         static bool CanHavePetAI(Creature* creature);
 
@@ -1281,7 +1261,46 @@ class ScriptMgr
         uint32 _scriptCount;
 
         //atomic op counter for active scripts amount
-        ACE_Atomic_Op<ACE_Thread_Mutex, long> _scheduledScripts;
+        std::atomic_long _scheduledScripts;
+};
+
+namespace Trinity::SpellScripts
+{
+    template<typename T>
+    using is_SpellScript = std::is_base_of<SpellScript, T>;
+
+    template<typename T>
+    using is_AuraScript = std::is_base_of<AuraScript, T>;
+}
+
+template <typename... Ts>
+class GenericSpellAndAuraScriptLoader : public SpellScriptLoader
+{
+    using SpellScriptType = typename Trinity::find_type_if_t<Trinity::SpellScripts::is_SpellScript, Ts...>;
+    using AuraScriptType = typename Trinity::find_type_if_t<Trinity::SpellScripts::is_AuraScript, Ts...>;
+    using ArgsType = typename Trinity::find_type_if_t<Trinity::is_tuple, Ts...>;
+
+public:
+    GenericSpellAndAuraScriptLoader(char const* name, ArgsType&& args) : SpellScriptLoader(name), _args(std::move(args)) { }
+
+private:
+    SpellScript* GetSpellScript() const override
+    {
+        if constexpr (!std::is_same_v<SpellScriptType, Trinity::find_type_end>)
+            return Trinity::new_from_tuple<SpellScriptType>(_args);
+        else
+            return nullptr;
+    }
+
+    AuraScript* GetAuraScript() const override
+    {
+        if constexpr (!std::is_same_v<AuraScriptType, Trinity::find_type_end>)
+            return Trinity::new_from_tuple<AuraScriptType>(_args);
+        else
+            return nullptr;
+    }
+
+    ArgsType _args;
 };
 
 template <class T>
@@ -1297,6 +1316,11 @@ struct spell_script : SpellScriptLoader
     spell_script(char const* name) : SpellScriptLoader(name) { }
     SpellScript* GetSpellScript() const override { return new T(); }
 };
+
+#define RegisterSpellScriptWithArgs(spell_script, script_name, ...) new GenericSpellAndAuraScriptLoader<spell_script, decltype(std::make_tuple(__VA_ARGS__))>(script_name, std::make_tuple(__VA_ARGS__))
+#define RegisterSpellScript(spell_script) RegisterSpellScriptWithArgs(spell_script, #spell_script)
+#define RegisterSpellAndAuraScriptPairWithArgs(script_1, script_2, script_name, ...) new GenericSpellAndAuraScriptLoader<script_1, script_2, decltype(std::make_tuple(__VA_ARGS__))>(script_name, std::make_tuple(__VA_ARGS__))
+#define RegisterSpellAndAuraScriptPair(script_1, script_2) RegisterSpellAndAuraScriptPairWithArgs(script_1, script_2, #script_1)
 
 template <class T>
 struct atrigger_script : public SpellAreaTriggerScript

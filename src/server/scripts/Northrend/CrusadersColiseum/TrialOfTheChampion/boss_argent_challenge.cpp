@@ -235,7 +235,7 @@ class boss_eadric : public CreatureScript
                 Talk(SAY_COMMON_INTRO_1);
             }
 
-            void DamageTaken(Unit* /*attacker*/, uint32& damage)
+            void DamageTaken(Unit* /*attacker*/, uint32& damage) override
             {
                 if (damage >= me->GetHealth())
                 {
@@ -249,14 +249,14 @@ class boss_eadric : public CreatureScript
 
                     Talk(SAY_COMMON_DEATH);
 
-                    if (GameObject* go = GameObject::GetGameObject(*me, _instance->GetData64(DATA_MAIN_GATE)))
+                    if (GameObject* go = GameObject::GetGameObject(*me, _instance->GetGuidData(DATA_MAIN_GATE)))
                         _instance->HandleGameObject(go->GetGUID(), true);
-                    if (GameObject* go = GameObject::GetGameObject(*me, _instance->GetData64(DATA_PORTCULLIS)))
+                    if (GameObject* go = GameObject::GetGameObject(*me, _instance->GetGuidData(DATA_PORTCULLIS)))
                         _instance->HandleGameObject(go->GetGUID(), true);
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat(me, 150.0f);
                 Talk(SAY_COMMON_AGGRO);
@@ -556,14 +556,14 @@ class boss_paletress : public CreatureScript
 
                     Talk(SAY_COMMON_DEATH);
 
-                    if (GameObject* go = GameObject::GetGameObject(*me, _instance ? _instance->GetData64(DATA_MAIN_GATE) : 0))
+                    if (GameObject* go = GameObject::GetGameObject(*me, _instance ? _instance->GetGuidData(DATA_MAIN_GATE) : ObjectGuid::Empty))
                         _instance->HandleGameObject(go->GetGUID(), true);
-                    if (GameObject* go = GameObject::GetGameObject(*me, _instance ? _instance->GetData64(DATA_PORTCULLIS) : 0))
+                    if (GameObject* go = GameObject::GetGameObject(*me, _instance ? _instance->GetGuidData(DATA_PORTCULLIS) : ObjectGuid::Empty))
                         _instance->HandleGameObject(go->GetGUID(), true);
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 DoZoneInCombat(me, 150.0f);
                 Talk(SAY_COMMON_AGGRO);
@@ -589,7 +589,7 @@ class boss_paletress : public CreatureScript
                     _instance->SetData(DATA_MEMORY_ENTRY, summon->GetEntry());
             }
 
-            void SummonedCreatureDies(Creature* /*summon*/, Unit* /*killer*/)
+            void SummonedCreatureDies(Creature* /*summon*/, Unit* /*killer*/) override
             {
                 me->RemoveAura(SPELL_SHIELD);
                 Talk(SAY_PALETRESS_MEMORY_DIES);
@@ -823,7 +823,7 @@ class npc_argent_soldier : public CreatureScript
                 _events.Reset();
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 switch (me->GetEntry())
                 {
@@ -847,7 +847,7 @@ class npc_argent_soldier : public CreatureScript
                 }
             }
 
-            void WaypointReached(uint32 point)
+            void WaypointReached(uint32 point) override
             {
                 if (point == 0)
                 {
@@ -869,7 +869,7 @@ class npc_argent_soldier : public CreatureScript
                 }
             }
 
-            void SetData(uint32 type, uint32 /*data*/)
+            void SetData(uint32 type, uint32 /*data*/) override
             {
                 switch (me->GetEntry())
                 {
@@ -917,7 +917,7 @@ class npc_argent_soldier : public CreatureScript
                         break;
                 }
 
-                Start(false, true, 0);
+                Start(false, true, ObjectGuid::Empty);
                 _waypoint = type;
             }
 

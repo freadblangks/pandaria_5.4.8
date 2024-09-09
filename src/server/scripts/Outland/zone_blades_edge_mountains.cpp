@@ -139,7 +139,7 @@ public:
             IntangiblePresence_Timer = 15000;
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void MoveInLineOfSight(Unit* who) override
 
@@ -287,7 +287,7 @@ public:
 
         void Reset() override { }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void MoveInLineOfSight(Unit* who) override
 
@@ -462,11 +462,11 @@ public:
            }
         }
 
-        uint64 OgreGUID;
+        ObjectGuid OgreGUID;
 
         void Reset() override
         {
-            OgreGUID = 0;
+            OgreGUID = ObjectGuid::Empty;
         }
 
         void UpdateAI(uint32 /*uiDiff*/) override { }
@@ -491,11 +491,11 @@ public:
     {
         npc_ogre_bruteAI(Creature* creature) : ScriptedAI(creature) { }
 
-        uint64 PlayerGUID;
+        ObjectGuid PlayerGUID;
 
         void Reset() override
         {
-            PlayerGUID = 0;
+            PlayerGUID = ObjectGuid::Empty;
         }
 
         void MoveInLineOfSight(Unit* who) override
@@ -649,7 +649,7 @@ class npc_simon_bunny : public CreatureScript
             uint8 gameLevel;
             uint8 fails;
             uint8 gameTicks;
-            uint64 playerGUID;
+            ObjectGuid playerGUID;
             uint32 clusterIds[SIMON_MAX_COLORS];
             float zCoordCorrection;
             float searchDistance;
@@ -759,7 +759,7 @@ class npc_simon_bunny : public CreatureScript
             }
 
             // Used for getting involved player guid. Parameter id is used for defining if is a large(Monument) or small(Relic) node
-            void SetGUID(uint64 guid, int32 id) override
+            void SetGUID(ObjectGuid guid, int32 id) override
             {
                 me->SetCanFly(true);
 

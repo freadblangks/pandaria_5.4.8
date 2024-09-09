@@ -68,6 +68,12 @@ BattlegroundMgr::~BattlegroundMgr()
     DeleteAllBattlegrounds();
 }
 
+BattlegroundMgr* BattlegroundMgr::instance()
+{
+    static BattlegroundMgr instance;
+    return &instance;
+}
+
 void BattlegroundMgr::DeleteAllBattlegrounds()
 {
     for (BattlegroundDataContainer::iterator itr1 = bgDataStore.begin(); itr1 != bgDataStore.end(); ++itr1)
@@ -163,7 +169,7 @@ void BattlegroundMgr::BuildBattlegroundStatusPacket(WorldPacket* data, Battlegro
     ObjectGuid bgGuid;
 
     if (bg && bg->IsRandom() && !bg->IsRated())
-        bgGuid = MAKE_NEW_GUID(BATTLEGROUND_RB, 0, HIGHGUID_BATTLEGROUND);
+        bgGuid = ObjectGuid(HighGuid::BattleGround, ObjectGuid::LowType(BATTLEGROUND_RB));
     else if (bg)
         bgGuid = bg->GetGUID();
     else
@@ -384,7 +390,7 @@ void BattlegroundMgr::BuildPvpLogDataPacket(WorldPacket* data, Battleground* bg)
     {
         if (!bg->IsArena() && !bg->IsPlayerInBattleground(itr->first))
         {
-            TC_LOG_ERROR("network", "Player " UI64FMTD " has scoreboard entry for battleground %u but is not in battleground!", itr->first, bg->GetTypeID(true));
+            TC_LOG_ERROR("network", "Player " UI64FMTD " has scoreboard entry for battleground %u but is not in battleground!", itr->first.GetRawValue(), bg->GetTypeID(true));
             continue;
         }
 
@@ -396,6 +402,8 @@ void BattlegroundMgr::BuildPvpLogDataPacket(WorldPacket* data, Battleground* bg)
         ++scoreCount;
 
         Player* player = ObjectAccessor::FindPlayer(itr->first);
+        if (!player)
+            continue;
         ObjectGuid playerGUID = itr->first;
         BattlegroundScore* score = itr->second;
 
@@ -603,7 +611,7 @@ void BattlegroundMgr::BuildStatusFailedPacket(WorldPacket* data, Battleground* b
 {
     ObjectGuid playerGuid = player->GetGUID(); // player who caused the error
     ObjectGuid battlegroundGuid = bg->GetGUID();
-    ObjectGuid unkGuid3 = 0;
+    ObjectGuid unkGuid3 = ObjectGuid::Empty;
 
     switch (result)
     {
@@ -611,7 +619,7 @@ void BattlegroundMgr::BuildStatusFailedPacket(WorldPacket* data, Battleground* b
         case ERR_BATTLEGROUND_TOO_MANY_QUEUES:
         case ERR_BATTLEGROUND_CANNOT_QUEUE_FOR_RATED:
         case ERR_BATTLEGROUND_QUEUED_FOR_RATED:
-            playerGuid = 0;
+            playerGuid.Clear();
             break;
     }
 
@@ -681,52 +689,48 @@ void BattlegroundMgr::BuildUpdateWorldStatePacket(WorldPacket* data, uint32 fiel
     *data << uint32(field);
 }
 
-void BattlegroundMgr::BuildPlayerLeftBattlegroundPacket(WorldPacket* data, uint64 guid)
+void BattlegroundMgr::BuildPlayerLeftBattlegroundPacket(WorldPacket* data, ObjectGuid guid)
 {
-    ObjectGuid guidBytes = guid;
-
     data->Initialize(SMSG_BATTLEGROUND_PLAYER_LEFT, 8);
-    data->WriteBit(guidBytes[3]);
-    data->WriteBit(guidBytes[5]);
-    data->WriteBit(guidBytes[6]);
-    data->WriteBit(guidBytes[0]);
-    data->WriteBit(guidBytes[1]);
-    data->WriteBit(guidBytes[2]);
-    data->WriteBit(guidBytes[7]);
-    data->WriteBit(guidBytes[4]);
+    data->WriteBit(guid[3]);
+    data->WriteBit(guid[5]);
+    data->WriteBit(guid[6]);
+    data->WriteBit(guid[0]);
+    data->WriteBit(guid[1]);
+    data->WriteBit(guid[2]);
+    data->WriteBit(guid[7]);
+    data->WriteBit(guid[4]);
 
-    data->WriteByteSeq(guidBytes[0]);
-    data->WriteByteSeq(guidBytes[6]);
-    data->WriteByteSeq(guidBytes[5]);
-    data->WriteByteSeq(guidBytes[7]);
-    data->WriteByteSeq(guidBytes[2]);
-    data->WriteByteSeq(guidBytes[1]);
-    data->WriteByteSeq(guidBytes[3]);
-    data->WriteByteSeq(guidBytes[4]);
+    data->WriteByteSeq(guid[0]);
+    data->WriteByteSeq(guid[6]);
+    data->WriteByteSeq(guid[5]);
+    data->WriteByteSeq(guid[7]);
+    data->WriteByteSeq(guid[2]);
+    data->WriteByteSeq(guid[1]);
+    data->WriteByteSeq(guid[3]);
+    data->WriteByteSeq(guid[4]);
 }
 
-void BattlegroundMgr::BuildPlayerJoinedBattlegroundPacket(WorldPacket* data, uint64 guid)
+void BattlegroundMgr::BuildPlayerJoinedBattlegroundPacket(WorldPacket* data, ObjectGuid guid)
 {
-    ObjectGuid guidBytes = guid;
-
     data->Initialize(SMSG_BATTLEGROUND_PLAYER_JOINED, 9);
-    data->WriteBit(guidBytes[7]);
-    data->WriteBit(guidBytes[1]);
-    data->WriteBit(guidBytes[0]);
-    data->WriteBit(guidBytes[4]);
-    data->WriteBit(guidBytes[2]);
-    data->WriteBit(guidBytes[5]);
-    data->WriteBit(guidBytes[6]);
-    data->WriteBit(guidBytes[3]);
+    data->WriteBit(guid[7]);
+    data->WriteBit(guid[1]);
+    data->WriteBit(guid[0]);
+    data->WriteBit(guid[4]);
+    data->WriteBit(guid[2]);
+    data->WriteBit(guid[5]);
+    data->WriteBit(guid[6]);
+    data->WriteBit(guid[3]);
 
-    data->WriteByteSeq(guidBytes[0]);
-    data->WriteByteSeq(guidBytes[3]);
-    data->WriteByteSeq(guidBytes[7]);
-    data->WriteByteSeq(guidBytes[5]);
-    data->WriteByteSeq(guidBytes[2]);
-    data->WriteByteSeq(guidBytes[6]);
-    data->WriteByteSeq(guidBytes[4]);
-    data->WriteByteSeq(guidBytes[1]);
+    data->WriteByteSeq(guid[0]);
+    data->WriteByteSeq(guid[3]);
+    data->WriteByteSeq(guid[7]);
+    data->WriteByteSeq(guid[5]);
+    data->WriteByteSeq(guid[2]);
+    data->WriteByteSeq(guid[6]);
+    data->WriteByteSeq(guid[4]);
+    data->WriteByteSeq(guid[1]);
 }
 
 Battleground* BattlegroundMgr::GetBattlegroundThroughClientInstance(uint32 instanceId, BattlegroundTypeId bgTypeId)
@@ -895,7 +899,7 @@ Battleground* BattlegroundMgr::CreateNewBattleground(BattlegroundTypeId original
     bg->SetRandomTypeID(bgTypeId);
     bg->SetRated(isRated);
     bg->SetRandom(isRandom);
-    bg->SetGuid(MAKE_NEW_GUID(bgTypeId, 0, HIGHGUID_BATTLEGROUND));
+    bg->SetGuid(ObjectGuid(HighGuid::BattleGround, ObjectGuid::LowType(bgTypeId)));
 
     // Set up correct min/max player counts for scoreboards
     if (bg->IsArena())
@@ -968,7 +972,7 @@ bool BattlegroundMgr::CreateBattleground(CreateBattlegroundData& data)
     bg->SetStartMaxDist(data.StartMaxDist);
     bg->SetLevelRange(data.LevelMin, data.LevelMax);
     bg->SetScriptId(data.scriptId);
-    bg->SetGuid(MAKE_NEW_GUID(data.bgTypeId, 0, HIGHGUID_BATTLEGROUND));
+    bg->SetGuid(ObjectGuid(HighGuid::BattleGround, ObjectGuid::LowType(data.bgTypeId)));
 
     AddBattleground(bg);
 
@@ -1168,14 +1172,24 @@ void BattlegroundMgr::BuildBattlegroundListPacket(WorldPacket* data, ObjectGuid 
     data->WriteBit(player->GetRandomWinner()); // HasRandomWinToday
     data->WriteBit(guid[2]);
     data->WriteBit(guid == 0);    // PvpAnywhere (call EVENT_PVPQUEUE_ANYWHERE_SHOW if set)
-    data->WriteGuidMask(guid, 7, 6, 5, 1);
+    data->WriteBit(guid[7]);
+    data->WriteBit(guid[6]);
+    data->WriteBit(guid[5]);
+    data->WriteBit(guid[1]);
     data->WriteBit(IsBGWeekend(bgTypeId) && player->GetBgWeekendWinner()); // HasHolidayWinToday
     data->WriteBit(guid[3]);
     data->WriteBits(clientIds.size(), 22);
 
     data->FlushBits();
 
-    data->WriteGuidBytes(guid, 7, 3, 4, 0, 5, 6, 1, 2);
+    data->WriteByteSeq(guid[7]);
+    data->WriteByteSeq(guid[3]);
+    data->WriteByteSeq(guid[4]);
+    data->WriteByteSeq(guid[0]);
+    data->WriteByteSeq(guid[5]);
+    data->WriteByteSeq(guid[6]);
+    data->WriteByteSeq(guid[1]);
+    data->WriteByteSeq(guid[2]);
 
     for (auto&& clientId : clientIds)
         *data << uint32(clientId);
@@ -1197,32 +1211,31 @@ void BattlegroundMgr::SendToBattleground(Player* player, uint32 instanceId, Batt
         TC_LOG_ERROR("bg.battleground", "BattlegroundMgr::SendToBattleground: Instance %u (bgType %u) not found while trying to teleport player %s", instanceId, bgTypeId, player->GetName().c_str());
 }
 
-void BattlegroundMgr::SendAreaSpiritHealerQueryOpcode(Player* player, Battleground* bg, uint64 guid)
+void BattlegroundMgr::SendAreaSpiritHealerQueryOpcode(Player* player, Battleground* bg, ObjectGuid guid)
 {
-    ObjectGuid Guid = guid;
     uint32 time_ = 30000 - bg->GetLastResurrectTime();      // resurrect every 30 seconds
     if (time_ == uint32(-1))
         time_ = 0;
 
     WorldPacket data(SMSG_AREA_SPIRIT_HEALER_TIME, 12);
-    data.WriteBit(Guid[5]);
-    data.WriteBit(Guid[2]);
-    data.WriteBit(Guid[7]);
-    data.WriteBit(Guid[6]);
-    data.WriteBit(Guid[1]);
-    data.WriteBit(Guid[0]);
-    data.WriteBit(Guid[3]);
-    data.WriteBit(Guid[4]);
+    data.WriteBit(guid[5]);
+    data.WriteBit(guid[2]);
+    data.WriteBit(guid[7]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(guid[1]);
+    data.WriteBit(guid[0]);
+    data.WriteBit(guid[3]);
+    data.WriteBit(guid[4]);
 
-    data.WriteByteSeq(Guid[2]);
-    data.WriteByteSeq(Guid[3]);
-    data.WriteByteSeq(Guid[5]);
-    data.WriteByteSeq(Guid[4]);
-    data.WriteByteSeq(Guid[6]);
+    data.WriteByteSeq(guid[2]);
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(guid[5]);
+    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(guid[6]);
     data << time_;
-    data.WriteByteSeq(Guid[7]);
-    data.WriteByteSeq(Guid[0]);
-    data.WriteByteSeq(Guid[1]);
+    data.WriteByteSeq(guid[7]);
+    data.WriteByteSeq(guid[0]);
+    data.WriteByteSeq(guid[1]);
 
     player->GetSession()->SendPacket(&data);
 }
@@ -1599,18 +1612,18 @@ void BattlegroundMgr::RemoveBattleground(BattlegroundTypeId bgTypeId, uint32 ins
     bgDataStore[bgTypeId].m_Battlegrounds.erase(instanceId);
 }
 
-void BattlegroundMgr::ApplyDeserter(uint64 guid, uint32 duration)
+void BattlegroundMgr::ApplyDeserter(ObjectGuid guid, uint32 duration)
 {
-    Player* player = ObjectAccessor::FindPlayerInOrOutOfWorld(guid);
+    Player* player = ObjectAccessor::FindPlayer(guid);
     if (player)
         player->ApplyDeserter();
     else
     {
-        uint32 guidLow = GUID_LOPART(guid);
+        uint32 guidLow = guid.GetCounter();
 
-        SQLTransaction trans = CharacterDatabase.BeginTransaction();
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
 
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_NAME_DATA);
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_SEL_CHARACTER_NAME_DATA);
         stmt->setUInt32(0, guidLow);
         if (PreparedQueryResult result = CharacterDatabase.Query(stmt))
         {
@@ -1651,7 +1664,7 @@ void BattlegroundMgr::EnqueueNewGameStat(ArenaGameStatistic const& stat)
     GenerateNewGameStatId();
 }
 
-void BattlegroundMgr::PrepareNewGameStat(SQLTransaction& trans, ArenaGameStatistic const& stat, uint32 id)
+void BattlegroundMgr::PrepareNewGameStat(LoginDatabaseTransaction trans, ArenaGameStatistic const& stat, uint32 id)
 {
     for (auto&& it : stat.Data)
     {
@@ -1688,37 +1701,37 @@ void BattlegroundMgr::RemovePlayerFromQueue(Player* player, BattlegroundQueueTyp
 
 void BattlegroundMgr::GenerateNewGameStatId()
 {
-    SQLQueryHolder* holder = new SQLQueryHolder();
-    holder->SetSize(2);
-    holder->SetPQuery(0, "INSERT INTO arena_game_id (realm_id) VALUES (%u)", realmID);
-    holder->SetQuery(1, "SELECT LAST_INSERT_ID()");
-    auto task = LoginDatabase.Async(holder);
-    task->ContinueWith([=](SQLQueryHolder* holder)
-    {
-        QueryResult result = holder->GetResult(1);
-        if (!result)
-        {
-            TC_LOG_ERROR("battleground", "BattlegroundMgr::GenerateNewGameStatId - Coudn't select max game id");
-            m_resultQueue.pop_front();
-            ScheduleNextGameStat();
-        }
-        else
-        {
-            SQLTransaction trans = LoginDatabase.BeginTransaction();
-            uint32 id = (*result)[0].GetUInt32();
-            auto& stat = m_resultQueue.front();
-            PrepareNewGameStat(trans, stat, id);
-            auto task = LoginDatabase.Async(trans);
-            task->ContinueWith([=](bool result)
-            {
-                if (!result)
-                    TC_LOG_ERROR("battleground", "BattlegroundMgr::InsertNewGameStat - Transaction faield");
-                ScheduleNextGameStat();
-            });
-            m_resultQueue.pop_front();
-            LoginDatabase.PExecute("DELETE FROM arena_game_id WHERE game_id < %u and realm_id = %u", id, realmID);
-        }
-    });
+    // SQLQueryHolder<LoginDatabaseConnection>* holder = new SQLQueryHolder();
+    // holder->SetSize(2);
+    // holder->SetPQuery(0, "INSERT INTO arena_game_id (realm_id) VALUES (%u)", realmID);
+    // holder->SetQuery(1, "SELECT LAST_INSERT_ID()");
+    // auto task = LoginDatabase.Async(holder);
+    // task->ContinueWith([=](SQLQueryHolder* holder)
+    // {
+    //     QueryResult result = holder->GetResult(1);
+    //     if (!result)
+    //     {
+    //         TC_LOG_ERROR("battleground", "BattlegroundMgr::GenerateNewGameStatId - Coudn't select max game id");
+    //         m_resultQueue.pop_front();
+    //         ScheduleNextGameStat();
+    //     }
+    //     else
+    //     {
+    //         LoginDatabaseTransaction trans = LoginDatabase.BeginTransaction();
+    //         uint32 id = (*result)[0].GetUInt32();
+    //         auto& stat = m_resultQueue.front();
+    //         PrepareNewGameStat(trans, stat, id);
+    //         auto task = LoginDatabase.Async(trans);
+    //         task->ContinueWith([=](bool result)
+    //         {
+    //             if (!result)
+    //                 TC_LOG_ERROR("battleground", "BattlegroundMgr::InsertNewGameStat - Transaction faield");
+    //             ScheduleNextGameStat();
+    //         });
+    //         m_resultQueue.pop_front();
+    //         LoginDatabase.PExecute("DELETE FROM arena_game_id WHERE game_id < %u and realm_id = %u", id, realmID);
+    //     }
+    // });
 }
 
 void BattlegroundMgr::ScheduleNextGameStat()

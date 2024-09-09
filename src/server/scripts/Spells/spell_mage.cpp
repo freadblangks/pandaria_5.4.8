@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -32,6 +32,7 @@
 #include "Containers.h"
 #include "Pet.h"
 #include "spell_common.h"
+#include "Random.h"
 
 enum MageSpells
 {
@@ -1049,10 +1050,10 @@ class spell_mastery_icicles_periodic : public AuraScript
 {
     PrepareAuraScript(spell_mastery_icicles_periodic);
 
-    uint64 targetGuid = 0;
+    ObjectGuid targetGuid = ObjectGuid::Empty;
 
 public:
-    void SetTarget(uint64 target)
+    void SetTarget(ObjectGuid target)
     {
         targetGuid = target;
     }
@@ -1440,7 +1441,7 @@ class spell_mage_ignite : public AuraScript
     void HandleProc(AuraEffect const* mastery, ProcEventInfo& eventInfo)
     {
         Unit* caster  = GetCaster();
-        uint64 targetGuid  = eventInfo.GetProcTarget()->GetGUID();
+        ObjectGuid targetGuid  = eventInfo.GetProcTarget()->GetGUID();
         if (mastery->GetFloatAmount() <= 0.0f)
             return;
 
@@ -1881,7 +1882,7 @@ class spell_mage_alter_time_cast : public SpellScript
     {
         health = GetCaster()->GetHealth();
         mana = GetCaster()->GetPower(POWER_MANA);
-        GetCaster()->GetPosition(&pos);
+        pos = GetCaster()->GetWorldLocation();
         pos.m_mapId = GetCaster()->GetMapId();
         for (auto&& it : GetCaster()->GetAppliedAuras())
         {
@@ -2256,7 +2257,7 @@ protected:
         Unit* target = GetTarget();
         if (Player* mage = target->ToPlayer())
         {
-            mage->SetUInt16Value(PLAYER_FIELD_OVERRIDE_SPELLS_ID, 0, 16384); // TODO: Need more research
+            mage->SetUInt16Value(PLAYER_FIELD_BYTES2, 0, 16384); // TODO: Need more research
             if (Pet* pet = mage->GetPet())
                 pet->CastSpell(pet, GetId(), true);
         }
@@ -2267,7 +2268,7 @@ protected:
     void HandleRemove(AuraEffect const*, AuraEffectHandleModes)
     {
         if (Player* mage = GetTarget()->ToPlayer())
-            mage->SetUInt16Value(PLAYER_FIELD_OVERRIDE_SPELLS_ID, 0, 0);
+            mage->SetUInt16Value(PLAYER_FIELD_BYTES2, 0, 0);
     }
 
     void Register() override
@@ -2567,7 +2568,7 @@ class spell_mage_glyph_of_icy_veins : public SpellScript
         if (mage->HasAura(SPELL_MAGE_ICY_VEINS_GLYPHED))
         {
             Unit* caster = GetCaster();
-            uint64 guid = GetSpell()->m_targets.GetUnitTargetGUID();
+            ObjectGuid guid = GetSpell()->m_targets.GetUnitTargetGUID();
             uint32 spell = GetSpellId();
 
             float mult = 0.4f;   // Primiry mod

@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -29,6 +29,16 @@
 #include "Chat.h"
 #include "CellImpl.h"
 #include "InstanceScript.h"
+
+CreatureAI::CreatureAI(Creature* creature) : UnitAI(creature), me(creature), m_MoveInLineOfSight_locked(false), m_canSeeEvenInPassiveMode(false)
+{ 
+
+}
+
+CreatureAI::~CreatureAI() 
+{ 
+
+}
 
 //Disable CreatureAI when charmed
 void CreatureAI::OnCharmed(bool /*apply*/)
@@ -324,7 +334,7 @@ bool CreatureAI::_EnterEvadeMode()
     // don't remove vehicle auras, passengers aren't supposed to drop off the vehicle
     // don't remove clone caster on evade (to be verified)
     // And don't remove any auras for fucking player's summons
-    if (!IS_PLAYER_GUID(me->GetCreatorGUID()))
+    if (!me->GetCreatorGUID().IsPlayer())
         me->RemoveAllAurasExceptType(SPELL_AURA_CONTROL_VEHICLE, SPELL_AURA_CLONE_CASTER);
 
     // sometimes bosses stuck in combat?
@@ -353,15 +363,13 @@ Creature* CreatureAI::DoSummon(uint32 entry, const Position& pos, uint32 despawn
 
 Creature* CreatureAI::DoSummon(uint32 entry, WorldObject* obj, float radius, uint32 despawnTime, TempSummonType summonType)
 {
-    Position pos;
-    obj->GetRandomNearPosition(pos, radius);
+    Position pos = obj->GetRandomNearPosition(radius);
     return me->SummonCreature(entry, pos, summonType, despawnTime);
 }
 
 Creature* CreatureAI::DoSummonFlyer(uint32 entry, WorldObject* obj, float flightZ, float radius, uint32 despawnTime, TempSummonType summonType)
 {
-    Position pos;
-    obj->GetRandomNearPosition(pos, radius);
+    Position pos = obj->GetRandomNearPosition(radius);
     pos.m_positionZ += flightZ;
     return me->SummonCreature(entry, pos, summonType, despawnTime);
 }
@@ -404,7 +412,7 @@ void VehicleAIBase::Reset()
 
 void VehicleAIBase::OnCharmed(bool apply)
 {
-    if (m_IsVehicleInUse && !apply && !conditions.empty())//was used and has conditions
+    if (m_IsVehicleInUse && !apply && !m_HasConditions)//was used and has conditions
     {
         m_DoDismiss = true;//needs reset
         m_vehicleBase->RemoveFlag(UNIT_FIELD_NPC_FLAGS, UNIT_NPC_FLAG_PLAYER_VEHICLE);
@@ -425,16 +433,14 @@ void VehicleAIBase::LoadConditions()
         sConditionMgr->RegisterVehicleAI(this);
     }
 
-    conditions = sConditionMgr->GetConditionsForNotGroupedEntry(CONDITION_SOURCE_TYPE_CREATURE_TEMPLATE_VEHICLE, m_vehicleBase->GetEntry());
-    if (!conditions.empty())
-        TC_LOG_DEBUG("condition", "VehicleAI::LoadConditions: loaded %u conditions", uint32(conditions.size()));
+    m_HasConditions = sConditionMgr->HasConditionsForNotGroupedEntry(CONDITION_SOURCE_TYPE_CREATURE_TEMPLATE_VEHICLE, m_vehicleBase->GetEntry());
 }
 
 void VehicleAIBase::CheckConditions(uint32 const diff)
 {
     if (m_ConditionsTimer < diff)
     {
-        if (!conditions.empty())
+        if (m_HasConditions)
         {
             for (auto&& seat : m_vehicle->Seats)
             {
@@ -442,7 +448,8 @@ void VehicleAIBase::CheckConditions(uint32 const diff)
                 {
                     if (Player* player = passenger->ToPlayer())
                     {
-                        if (!sConditionMgr->IsObjectMeetToConditions(player, m_vehicleBase, conditions))
+                        //if (!sConditionMgr->IsObjectMeetToConditions(player, m_vehicleBase, conditions))
+                        if (!sConditionMgr->IsObjectMeetingNotGroupedConditions(CONDITION_SOURCE_TYPE_CREATURE_TEMPLATE_VEHICLE, m_vehicleBase->GetEntry(), player, m_vehicleBase))
                         {
                             player->ExitVehicle();
                             return;//check other pessanger in next tick
@@ -462,7 +469,7 @@ SummonablePremiumNpcAI::SummonablePremiumNpcAI(Creature* creature, uint32 displa
     if (me->IsSummon())
     {
         me->SetDisplayId(displayId ? displayId : me->GetNativeDisplayId());
-        me->SetFlag(UNIT_FIELD_FLAGS2, UNIT_FLAG2_UNK1); // Makes nameplate disappear, without this it may pop-up for a frame or two after summoning
+        me->SetFlag(UNIT_FIELD_FLAGS_2, UNIT_FLAG2_UNK1); // Makes nameplate disappear, without this it may pop-up for a frame or two after summoning
         me->SetFloatValue(UNIT_FIELD_COMBAT_REACH, 50000.0f);
         me->SetPhaseMask(PHASEMASK_ANYWHERE, false);
         me->SetVisible(false); // Exploiting our visibility system to make summoned .premium NPCs only visible to the summoner
@@ -503,7 +510,6 @@ Creature* SummonablePremiumNpcAI::FindOrSpawn(PlayerOrChatHandler player, uint32
 {
     ASSERT(entry >= 190000);
     ASSERT(sObjectMgr->GetCreatureTemplate(entry));
-    ASSERT(sObjectMgr->GetCreatureTemplate(entry)->flags_extra & CREATURE_FLAG_EXTRA_project_NPC);
 
     SummonablePremiumNpcSearcher searcher { entry, player->GetGUID() };
     player->GetMap()->LoadGrid(0, 0);
@@ -525,8 +531,25 @@ Creature* SummonablePremiumNpcAI::OpenGossip(PlayerOrChatHandler player, Creatur
     // Yeah, lol. Just to simulate the whole process, with aura interruptions and such, and avoid duplicating code
     ObjectGuid guid = creature->GetGUID();
     WorldPacket data(CMSG_GOSSIP_HELLO, 8);
-    data.WriteGuidMask(guid, 2, 4, 0, 3, 6, 7, 5, 1);
-    data.WriteGuidBytes(guid, 4, 7, 1, 0, 5, 3, 6, 2);
+
+    data.WriteBit(guid[2]);
+    data.WriteBit(guid[4]);
+    data.WriteBit(guid[0]);
+    data.WriteBit(guid[3]);
+    data.WriteBit(guid[6]);
+    data.WriteBit(guid[7]);
+    data.WriteBit(guid[5]);
+    data.WriteBit(guid[1]);
+
+    data.WriteByteSeq(guid[4]);
+    data.WriteByteSeq(guid[7]);
+    data.WriteByteSeq(guid[1]);
+    data.WriteByteSeq(guid[0]);
+    data.WriteByteSeq(guid[5]);
+    data.WriteByteSeq(guid[3]);
+    data.WriteByteSeq(guid[6]);
+    data.WriteByteSeq(guid[2]);
+
     player->GetSession()->HandleGossipHelloOpcode(data);
     return creature;
 }

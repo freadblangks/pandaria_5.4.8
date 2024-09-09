@@ -424,11 +424,11 @@ void ThreatManager::doAddThreat(Unit* victim, float threat)
     // If victim is personnal spawn, redirect all aggro to summoner
     if (TempSummon* tempSummonVictim = victim->ToTempSummon())
     {
-        if (tempSummonVictim->IsVisibleBySummonerOnly())
+        if (tempSummonVictim->IsPrivateObject())
         {
             // Personnal Spawns from same summoner can aggro each other
             if (!GetOwner()->ToTempSummon() ||
-                !GetOwner()->ToTempSummon()->IsVisibleBySummonerOnly() ||
+                !GetOwner()->ToTempSummon()->IsPrivateObject() ||
                 tempSummonVictim->GetSummonerGUID() != GetOwner()->ToTempSummon()->GetSummonerGUID())
             {
                 redirectThreadPct = 100;
@@ -445,11 +445,11 @@ void ThreatManager::doAddThreat(Unit* victim, float threat)
             float redirectThreat = CalculatePct(threat, redirectThreadPct);
             threat -= redirectThreat;
             // Transferred threat is not permanent, and will fade after 30 sec. All spells have that description.
-            uint64 guid = redirectTarget->GetGUID();
+            ObjectGuid guid = redirectTarget->GetGUID();
             Unit* owner = GetOwner();
             owner->m_Events.Schedule(30000, [=]
             {
-                if (Unit* redirectTarget = ObjectAccessor::FindUnit(guid))
+                if (Unit* redirectTarget = ObjectAccessor::GetUnit(*owner, guid))
                     owner->AddThreat(redirectTarget, -redirectThreat);
             });
             _addThreat(redirectTarget, redirectThreat);

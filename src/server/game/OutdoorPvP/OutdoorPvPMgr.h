@@ -21,7 +21,6 @@
 #define OUTDOORPVP_OBJECTIVE_UPDATE_INTERVAL 1000
 
 #include "OutdoorPvP.h"
-#include <ace/Singleton.h>
 
 class Player;
 class GameObject;
@@ -38,13 +37,12 @@ struct OutdoorPvPData
 // class to handle player enter / leave / areatrigger / GO use events
 class OutdoorPvPMgr
 {
-    friend class ACE_Singleton<OutdoorPvPMgr, ACE_Null_Mutex>;
-
     private:
         OutdoorPvPMgr();
         ~OutdoorPvPMgr() { };
 
     public:
+        static OutdoorPvPMgr* instance();
         // create outdoor pvp events
         void InitOutdoorPvP();
 
@@ -67,7 +65,7 @@ class OutdoorPvPMgr
         bool HandleCustomSpell(Player* player, uint32 spellId, GameObject* go);
 
         // handle custom go if registered
-        bool HandleOpenGo(Player* player, uint64 guid);
+        bool HandleOpenGo(Player* player, ObjectGuid guid);
 
         ZoneScript* GetZoneScript(uint32 zoneId);
 
@@ -75,7 +73,7 @@ class OutdoorPvPMgr
 
         void Update(uint32 diff);
 
-        void HandleGossipOption(Player* player, uint64 guid, uint32 gossipid);
+        void HandleGossipOption(Player* player, Creature* creature, uint32 gossipid);
 
         bool CanTalkTo(Player* player, Creature* creature, GossipMenuItems const& gso);
 
@@ -101,6 +99,6 @@ class OutdoorPvPMgr
         uint32 m_UpdateTimer;
 };
 
-#define sOutdoorPvPMgr ACE_Singleton<OutdoorPvPMgr, ACE_Null_Mutex>::instance()
+#define sOutdoorPvPMgr OutdoorPvPMgr::instance()
 
 #endif /*OUTDOOR_PVP_MGR_H_*/

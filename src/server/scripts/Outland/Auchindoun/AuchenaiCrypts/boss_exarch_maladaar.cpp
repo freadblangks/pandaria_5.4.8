@@ -70,7 +70,7 @@ public:
             Class_Timer = 1000;
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         { }
 
         void SetMyClass(uint8 myclass)
@@ -168,7 +168,7 @@ public:
         }
 
         uint32 soulmodel;
-        uint64 soulholder;
+        ObjectGuid soulholder;
         uint8 soulclass;
 
         uint32 Fear_timer;
@@ -181,7 +181,7 @@ public:
         void Reset() override
         {
             soulmodel = 0;
-            soulholder = 0;
+            soulholder = ObjectGuid::Empty;
             soulclass = 0;
 
             Fear_timer = 15000 + rand()% 5000;
@@ -203,7 +203,7 @@ public:
             ScriptedAI::MoveInLineOfSight(who);
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
             Talk(SAY_AGGRO);
         }
@@ -322,7 +322,7 @@ public:
             Mortal_Strike_timer = 10000;
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
         }
 

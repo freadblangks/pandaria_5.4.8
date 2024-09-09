@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -93,12 +93,12 @@ public:
             { "creature_questender",            SEC_ADMINISTRATOR,  true,   &HandleReloadCreatureQuestEnderCommand,         },
             { "creature_linked_respawn",        SEC_ADMINISTRATOR,  true,   &HandleReloadLinkedRespawnCommand,              },
             { "creature_loot_template",         SEC_ADMINISTRATOR,  true,   &HandleReloadLootTemplatesCreatureCommand,      },
+            { "creature_movement_override",     SEC_ADMINISTRATOR,  true,   &HandleReloadCreatureMovementOverrideCommand,   },
             { "creature_onkill_reputation",     SEC_ADMINISTRATOR,  true,   &HandleReloadOnKillReputationCommand,           },
             { "creature_queststarter",          SEC_ADMINISTRATOR,  true,   &HandleReloadCreatureQuestStarterCommand,       },
-            { "creature_scaling",              SEC_ADMINISTRATOR,  true,   &HandleReloadCreatureScallingCommand,           },
+            { "creature_scaling",               SEC_ADMINISTRATOR,  true,   &HandleReloadCreatureScallingCommand,           },
             { "creature_summon_groups",         SEC_ADMINISTRATOR,  true,   &HandleReloadCreatureSummonGroupsCommand,       },
             { "creature_template",              SEC_ADMINISTRATOR,  true,   &HandleReloadCreatureTemplateCommand,           },
-            //{ "db_script_string",              SEC_ADMINISTRATOR, true,  &HandleReloadDbScriptStringCommand,            },
             { "disables",                       SEC_ADMINISTRATOR,  true,   &HandleReloadDisablesCommand,                   },
             { "disenchant_loot_template",       SEC_ADMINISTRATOR,  true,   &HandleReloadLootTemplatesDisenchantCommand,    },
             { "event_scripts",                  SEC_ADMINISTRATOR,  true,   &HandleReloadEventScriptsCommand,               },
@@ -116,10 +116,10 @@ public:
             { "item_loot_template",             SEC_ADMINISTRATOR,  true,   &HandleReloadLootTemplatesItemCommand,          },
             { "item_template_locale",           SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesItemCommand,                },
             { "lfg_dungeon_rewards",            SEC_ADMINISTRATOR,  true,   &HandleReloadLfgRewardsCommand,                 },
-            { "locales_achievement_reward",     SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesAchievementRewardCommand,   },
-            { "locales_creature",               SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesCreatureCommand,            },
-            { "locales_gossip_menu_option",     SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesGossipMenuOptionCommand,    },
-            { "locales_quest",                  SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesQuestCommand,               },
+            { "achievement_reward_locale",      SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesAchievementRewardCommand,   },
+            { "creature_template_locale",       SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesCreatureCommand,            },
+            { "gossip_menu_option_locale",      SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesGossipMenuOptionCommand,    },
+            { "quest_template_locale",          SEC_ADMINISTRATOR,  true,   &HandleReloadLocalesQuestCommand,               },
             { "mail_level_reward",              SEC_ADMINISTRATOR,  true,   &HandleReloadMailLevelRewardCommand,            },
             { "mail_loot_template",             SEC_ADMINISTRATOR,  true,   &HandleReloadLootTemplatesMailCommand,          },
             { "milling_loot_template",          SEC_ADMINISTRATOR,  true,   &HandleReloadLootTemplatesMillingCommand,       },
@@ -169,7 +169,7 @@ public:
             { "creature_loot_currency",         SEC_ADMINISTRATOR,  true,   &HandleReloadCreatureLootCurrency,              },
             { "gocollision",                    SEC_ADMINISTRATOR,  true,   &HandleReloadGOCollisionCommand,                },
             { "battlepay",                      SEC_ADMINISTRATOR,  true,   &HandleReloadBattlePayCommand,                  },
-            { "bad_word",                     SEC_ADMINISTRATOR, true,  &HandleReloadBadWordCommand,                   },
+            { "bad_word",                       SEC_ADMINISTRATOR,  true,   &HandleReloadBadWordCommand,                    },
         };
         static std::vector<ChatCommand> commandTable =
         {
@@ -284,7 +284,6 @@ public:
         HandleReloadEventScriptsCommand(handler, "a");
         HandleReloadSpellScriptsCommand(handler, "a");
         handler->SendGlobalGMSysMessage("DB tables `*_scripts` reloaded.");
-        HandleReloadDbScriptStringCommand(handler, "a");
         HandleReloadWpScriptsCommand(handler, "a");
         HandleReloadWpCommand(handler, "a");
         return true;
@@ -457,7 +456,7 @@ public:
         {
             uint32 entry = uint32(atoi(*itr));
 
-            PreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_CREATURE_TEMPLATE);
+            WorldDatabasePreparedStatement* stmt = WorldDatabase.GetPreparedStatement(WORLD_SEL_CREATURE_TEMPLATE);
             stmt->setUInt32(0, entry);
             PreparedQueryResult result = WorldDatabase.Query(stmt);
 
@@ -477,87 +476,7 @@ public:
             TC_LOG_INFO("misc", "Reloading creature template entry %u", entry);
 
             Field* fields = result->Fetch();
-
-            for (uint8 i = 0; i < MAX_TEMPLATE_DIFFICULTY - 1; ++i)
-                cInfo->DifficultyEntry[i] = fields[0 + i].GetUInt32();
-
-            for (uint8 i = 0; i < MAX_KILL_CREDIT; ++i)
-                cInfo->KillCredit[i] = fields[5 + i].GetUInt32();
-
-            cInfo->Modelid1           = fields[7].GetUInt32();
-            cInfo->Modelid2           = fields[8].GetUInt32();
-            cInfo->Modelid3           = fields[9].GetUInt32();
-            cInfo->Modelid4           = fields[10].GetUInt32();
-            cInfo->Name               = fields[11].GetString();
-            cInfo->SubName            = fields[12].GetString();
-            cInfo->IconName           = fields[13].GetString();
-            cInfo->GossipMenuId       = fields[14].GetUInt32();
-            cInfo->minlevel           = fields[15].GetUInt8();
-            cInfo->maxlevel           = fields[16].GetUInt8();
-            cInfo->expansion          = fields[17].GetUInt16();
-            cInfo->expansionUnknown   = fields[18].GetUInt16();
-            cInfo->faction_A          = fields[19].GetUInt16();
-            cInfo->faction_H          = fields[20].GetUInt16();
-            cInfo->npcflag            = fields[21].GetUInt32();
-            cInfo->npcflag2           = fields[22].GetUInt32();
-            cInfo->speed_walk         = fields[23].GetFloat();
-            cInfo->speed_run          = fields[24].GetFloat();
-            cInfo->scale              = fields[25].GetFloat();
-            cInfo->rank               = fields[26].GetUInt8();
-            cInfo->mindmg             = fields[27].GetFloat();
-            cInfo->maxdmg             = fields[28].GetFloat();
-            cInfo->dmgschool          = fields[29].GetUInt8();
-            cInfo->attackpower        = fields[30].GetUInt32();
-            cInfo->dmg_multiplier     = fields[31].GetFloat();
-            cInfo->baseattacktime     = fields[32].GetUInt32();
-            cInfo->rangeattacktime    = fields[33].GetUInt32();
-            cInfo->unit_class         = fields[34].GetUInt8();
-            cInfo->unit_flags         = fields[35].GetUInt32();
-            cInfo->unit_flags2        = fields[36].GetUInt32();
-            cInfo->dynamicflags       = fields[37].GetUInt32();
-            cInfo->family             = fields[38].GetUInt8();
-            cInfo->trainer_type       = fields[39].GetUInt8();
-            cInfo->trainer_class      = fields[40].GetUInt8();
-            cInfo->trainer_race       = fields[41].GetUInt8();
-            cInfo->minrangedmg        = fields[42].GetFloat();
-            cInfo->maxrangedmg        = fields[43].GetFloat();
-            cInfo->rangedattackpower  = fields[44].GetUInt16();
-            cInfo->type               = fields[45].GetUInt8();
-            cInfo->type_flags         = fields[46].GetUInt32();
-            cInfo->type_flags2        = fields[47].GetUInt32();
-            cInfo->lootid             = fields[48].GetUInt32();
-            cInfo->pickpocketLootId   = fields[49].GetUInt32();
-            cInfo->SkinLootId         = fields[50].GetUInt32();
-
-            for (uint8 i = SPELL_SCHOOL_HOLY; i < MAX_SPELL_SCHOOL; ++i)
-                cInfo->resistance[i] = fields[51 + i -1].GetUInt16();
-
-            for (uint8 i = 0; i < CREATURE_MAX_SPELLS; ++i)
-                cInfo->spells[i] = fields[57 + i].GetUInt32();
-
-            cInfo->PetSpellDataId     = fields[65].GetUInt32();
-            cInfo->VehicleId          = fields[66].GetUInt32();
-            cInfo->mingold            = fields[67].GetUInt32();
-            cInfo->maxgold            = fields[68].GetUInt32();
-            cInfo->AIName             = fields[69].GetString();
-            cInfo->MovementType       = fields[70].GetUInt8();
-            cInfo->InhabitType        = fields[71].GetUInt8();
-            cInfo->HoverHeight        = fields[72].GetFloat();
-            cInfo->ModHealth          = fields[73].GetFloat();
-            cInfo->ModMana            = fields[74].GetFloat();
-            cInfo->ModManaExtra       = fields[75].GetFloat();
-            cInfo->ModArmor           = fields[76].GetFloat();
-            cInfo->RacialLeader       = fields[77].GetBool();
-
-            for (uint8 i = 0; i < MAX_CREATURE_QUEST_ITEMS; ++i)
-                cInfo->questItems[i] = fields[78 + i].GetUInt32();
-
-            cInfo->movementId         = fields[84].GetUInt32();
-            cInfo->RegenHealth        = fields[85].GetBool();
-            cInfo->MechanicImmuneMask = fields[86].GetUInt32();
-            cInfo->flags_extra        = fields[87].GetUInt32();
-            cInfo->ScriptID           = sObjectMgr->GetScriptId(fields[88].GetCString());
-
+            sObjectMgr->LoadCreatureTemplate(fields);
             sObjectMgr->CheckCreatureTemplate(cInfo);
         }
 
@@ -669,6 +588,14 @@ public:
         sConditionMgr->LoadConditions(true);
         return true;
     }
+
+    static bool HandleReloadCreatureMovementOverrideCommand(ChatHandler* handler, char const* /*args*/)
+    {
+        TC_LOG_INFO("misc", "Re-Loading Creature movement overrides...");
+        sObjectMgr->LoadCreatureMovementOverrides();
+        handler->SendGlobalGMSysMessage("DB table `creature_movement_override` reloaded.");
+        return true;
+    }    
 
     static bool HandleReloadLootTemplatesDisenchantCommand(ChatHandler* handler, const char* /*args*/)
     {
@@ -1068,14 +995,6 @@ public:
         return true;
     }
 
-    static bool HandleReloadDbScriptStringCommand(ChatHandler* handler, const char* /*args*/)
-    {
-        TC_LOG_INFO("misc", "Re-Loading Script strings from `db_script_string`...");
-        sObjectMgr->LoadDbScriptStrings();
-        handler->SendGlobalGMSysMessage("DB table `db_script_string` reloaded.");
-        return true;
-    }
-
     static bool HandleReloadGameGraveyardZoneCommand(ChatHandler* handler, const char* /*args*/)
     {
         TC_LOG_INFO("misc", "Re-Loading Graveyard-zone links...");
@@ -1309,14 +1228,17 @@ public:
         }
 
         uint32 count = 0;
-        for (auto&& go : sObjectAccessor->GetGameObjects())
+        sMapMgr->DoForAllMaps([&count,entry](Map* map)
         {
-            if (go.second->GetEntry() == entry)
+            for (auto go : map->GetGameObjectBySpawnIdStore())
             {
-                go.second->UpdateCollision();
-                ++count;
+                if (go.second->GetEntry() == entry)
+                {
+                    go.second->UpdateCollision();
+                    ++count;
+                }
             }
-        }
+        });
 
         handler->PSendSysMessage("Updated collision for %u spawned GameObjects", count);
         return true;

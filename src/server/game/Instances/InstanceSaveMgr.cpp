@@ -19,6 +19,7 @@
 #include "Player.h"
 #include "GridNotifiers.h"
 #include "Log.h"
+#include "GameTime.h"
 #include "GridStates.h"
 #include "CellImpl.h"
 #include "Map.h"
@@ -39,6 +40,12 @@ uint16 InstanceSaveManager::ResetTimeDelay[] = {3600, 900, 300, 60};
 
 InstanceSaveManager::~InstanceSaveManager()
 {
+}
+
+InstanceSaveManager* InstanceSaveManager::instance()
+{
+    static InstanceSaveManager _instance;
+    return &_instance;
 }
 
 void InstanceSaveManager::Unload()
@@ -126,9 +133,9 @@ InstanceSave* InstanceSaveManager::GetInstanceSave(uint32 InstanceId)
 
 void InstanceSaveManager::DeleteInstanceFromDB(uint32 instanceid)
 {
-    SQLTransaction trans = CharacterDatabase.BeginTransaction();
+    CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_INSTANCE_BY_INSTANCE);
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_INSTANCE_BY_INSTANCE);
     stmt->setUInt32(0, instanceid);
     trans->Append(stmt);
 
@@ -140,7 +147,7 @@ void InstanceSaveManager::DeleteInstanceFromDB(uint32 instanceid)
     stmt->setUInt32(0, instanceid);
     trans->Append(stmt);
 
-    CharacterDatabase.CommitTransaction(trans, DBConnection::Instances);
+    CharacterDatabase.CommitTransaction(trans);
     // Respawn times should be deleted only when the map gets unloaded
 }
 
@@ -152,7 +159,7 @@ void InstanceSaveManager::RemoveInstanceSave(uint32 InstanceId)
         // save the resettime for normal instances only when they get unloaded
         if (time_t resettime = itr->second->GetResetTimeForDB())
         {
-            PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_INSTANCE_RESETTIME);
+            CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_UPD_INSTANCE_RESETTIME);
 
             stmt->setUInt32(0, uint32(resettime));
             stmt->setUInt32(1, InstanceId);
@@ -163,6 +170,12 @@ void InstanceSaveManager::RemoveInstanceSave(uint32 InstanceId)
         itr->second->SetToDelete(true);
         m_instanceSaveById.erase(itr);
     }
+}
+
+void InstanceSaveManager::UnloadInstanceSave(uint32 InstanceId)
+{
+    if (InstanceSave* save = GetInstanceSave(InstanceId))
+        save->UnloadIfEmpty();
 }
 
 InstanceSave::InstanceSave(uint16 MapId, uint32 InstanceId, Difficulty difficulty, time_t resetTime, bool canReset)
@@ -197,7 +210,7 @@ void InstanceSave::SaveToDB()
         isLfg = ((InstanceMap*)map)->IsLFGMap();
     }
 
-    PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_INSTANCE_SAVE);
+    CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_INS_INSTANCE_SAVE);
     stmt->setUInt32(0, m_instanceid);
     stmt->setUInt16(1, GetMapId());
     stmt->setUInt32(2, uint32(GetResetTimeForDB()));
@@ -205,7 +218,7 @@ void InstanceSave::SaveToDB()
     stmt->setUInt8(4, uint8(isLfg));
     stmt->setUInt32(5, completedEncounters);
     stmt->setString(6, data);
-    CharacterDatabase.Execute(stmt, DBConnection::Instances);
+    CharacterDatabase.Execute(stmt);
 }
 
 time_t InstanceSave::GetResetTimeForDB()
@@ -239,14 +252,18 @@ bool InstanceSave::UnloadIfEmpty()
 {
     if (m_playerList.empty() && m_groupList.empty())
     {
+        // don't remove the save if there are still players inside the map
+        if (Map* map = sMapMgr->FindMap(GetMapId(), GetInstanceId()))
+            if (map->HavePlayers())
+                return true;
+
         if (!sInstanceSaveMgr->lock_instLists)
             sInstanceSaveMgr->RemoveInstanceSave(GetInstanceId());
 
         return false;
     }
     else
-        return true;
-}
+        return true;}
 
 void InstanceSaveManager::LoadInstances()
 {
@@ -287,7 +304,7 @@ void InstanceSaveManager::LoadInstances()
 
 void InstanceSaveManager::LoadResetTimes()
 {
-    time_t now = time(nullptr);
+    time_t now = GameTime::GetGameTime();
 
     // NOTE: Use DirectPExecute for tables that will be queried later
 
@@ -311,11 +328,6 @@ void InstanceSaveManager::LoadResetTimes()
             Field* fields = result->Fetch();
 
             uint32 instanceId = fields[0].GetUInt32();
-
-            // Instances are pulled in ascending order from db and nextInstanceId is initialized with 1,
-            // so if the instance id is used, increment until we find the first unused one for a potential new instance
-            if (sMapMgr->GetNextInstanceId() == instanceId)
-                sMapMgr->SetNextInstanceId(instanceId + 1);
 
             // Mark instance id as being used
             sMapMgr->RegisterInstanceId(instanceId);
@@ -619,12 +631,12 @@ void InstanceSaveManager::_ResetInstance(uint32 mapid, uint32 instanceId)
     DeleteInstanceFromDB(instanceId);                       // even if save not loaded
 
     Map* iMap = ((MapInstanced*)map)->FindInstanceMap(instanceId);
-
-    if (iMap && (iMap->IsDungeon() || iMap->IsScenario()))
-        ((InstanceMap*)iMap)->Reset(INSTANCE_RESET_RESPAWN_DELAY);
-
     if (iMap)
+    {
+        ((InstanceMap*)iMap)->Reset(INSTANCE_RESET_RESPAWN_DELAY);
         iMap->DeleteRespawnTimes();
+        iMap->DeleteCorpseData();
+    }
     else
         Map::DeleteRespawnTimesInDB(mapid, instanceId);
 
@@ -660,9 +672,9 @@ void InstanceSaveManager::_ResetOrWarnAll(uint32 mapid, Difficulty difficulty, b
         }
 
         // delete them from the DB, even if not loaded
-        SQLTransaction trans = CharacterDatabase.BeginTransaction();
+        CharacterDatabaseTransaction trans = CharacterDatabase.BeginTransaction();
 
-        PreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CHAR_INSTANCE_BY_MAP_DIFF);
+        CharacterDatabasePreparedStatement* stmt = CharacterDatabase.GetPreparedStatement(CHAR_DEL_CHAR_INSTANCE_BY_MAP_DIFF);
         stmt->setUInt16(0, uint16(mapid));
         stmt->setUInt8(1, uint8(difficulty));
         trans->Append(stmt);
@@ -677,7 +689,7 @@ void InstanceSaveManager::_ResetOrWarnAll(uint32 mapid, Difficulty difficulty, b
         stmt->setUInt8(1, uint8(difficulty));
         trans->Append(stmt);
 
-        CharacterDatabase.CommitTransaction(trans, DBConnection::Instances);
+        CharacterDatabase.CommitTransaction(trans);
 
         // calculate the next reset time
         uint32 hour = sWorld->getIntConfig(CONFIG_INSTANCE_RESET_TIME_HOUR);
@@ -704,7 +716,7 @@ void InstanceSaveManager::_ResetOrWarnAll(uint32 mapid, Difficulty difficulty, b
         stmt->setUInt16(1, uint16(mapid));
         stmt->setUInt8(2, uint8(difficulty));
 
-        CharacterDatabase.Execute(stmt, DBConnection::Instances);
+        CharacterDatabase.Execute(stmt);
 
         // Mogu'shan Vaults -- The Stone Guard weekly mechanism. Executed once per week when instances get resetted.
         if (mapid == 1008)

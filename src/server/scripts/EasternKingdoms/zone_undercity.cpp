@@ -102,7 +102,7 @@ public:
 
         uint32 LamentEventTimer;
         bool LamentEvent;
-        uint64 targetGUID;
+        ObjectGuid targetGUID;
 
         uint32 FadeTimer;
         uint32 SummonSkeletonTimer;
@@ -114,7 +114,7 @@ public:
         {
             LamentEventTimer = 5000;
             LamentEvent = false;
-            targetGUID = 0;
+            targetGUID = ObjectGuid::Empty;
 
             FadeTimer = 30000;
             SummonSkeletonTimer = 20000;
@@ -123,7 +123,7 @@ public:
             MultiShotTimer = 10000;
         }
 
-        void EnterCombat(Unit* /*who*/) override
+        void JustEngagedWith(Unit* /*who*/) override
         {
             me->PlayDistanceSound(5886);
         }
@@ -248,7 +248,7 @@ public:
             EventCast = true;
         }
 
-        void EnterCombat(Unit* /*who*/) override { }
+        void JustEngagedWith(Unit* /*who*/) override { }
 
         void UpdateAI(uint32 diff) override
         {

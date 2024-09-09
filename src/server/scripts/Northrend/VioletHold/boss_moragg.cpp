@@ -68,11 +68,11 @@ class boss_moragg : public CreatureScript
                 }
             }
 
-            void EnterCombat(Unit* /*who*/) override
+            void JustEngagedWith(Unit* /*who*/) override
             {
                 if (instance)
                 {
-                    if (GameObject* pDoor = instance->instance->GetGameObject(instance->GetData64(DATA_MORAGG_CELL)))
+                    if (GameObject* pDoor = instance->instance->GetGameObject(instance->GetGuidData(DATA_MORAGG_CELL)))
                         if (pDoor->GetGoState() == GO_STATE_READY)
                         {
                             EnterEvadeMode();
