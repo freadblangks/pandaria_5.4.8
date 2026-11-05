@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -133,9 +133,14 @@ inline void CreatureUnitRelocationWorker(Creature* c, Unit* u)
     if (!u->IsAlive() || !c->IsAlive() || c == u || u->IsInFlight())
         return;
 
-    if (c->HasReactState(REACT_AGGRESSIVE) && !c->HasUnitState(UNIT_STATE_SIGHTLESS))
+    if (!c->HasUnitState(UNIT_STATE_SIGHTLESS))
+    {
         if (c->IsAIEnabled && c->CanSeeOrDetect(u, false, true))
             c->AI()->MoveInLineOfSight_Safe(u);
+        else
+            if (u->GetTypeId() == TYPEID_PLAYER && u->HasStealthAura() && c->IsAIEnabled && c->CanSeeOrDetect(u, false, true, true))
+                c->AI()->TriggerAlert(u);
+    }
 }
 
 void AIRelocationNotifier::Visit(CreatureMapType &m)
@@ -157,8 +162,16 @@ void MessageDistDeliverer::Visit(PlayerMapType &m)
         if (!target->InSamePhase(i_phaseMask))
             continue;
 
-        if (target->GetExactDist2dSq(i_source) > i_distSq)
-            continue;
+        if (required3dDist)
+        {
+            if (target->GetExactDistSq(i_source) > i_distSq)
+                continue;
+        }
+        else
+        {
+            if (target->GetExactDist2dSq(i_source) > i_distSq)
+                continue;
+        }        
 
         // Send packet to all who are sharing the player's vision
         if (target->HasSharedVision())
@@ -182,8 +195,16 @@ void MessageDistDeliverer::Visit(CreatureMapType &m)
         if (!target->InSamePhase(i_phaseMask))
             continue;
 
-        if (target->GetExactDist2dSq(i_source) > i_distSq)
-            continue;
+        if (required3dDist)
+        {
+            if (target->GetExactDistSq(i_source) > i_distSq)
+                continue;
+        }
+        else
+        {
+            if (target->GetExactDist2dSq(i_source) > i_distSq)
+                continue;
+        }
 
         // Send packet to all who are sharing the creature's vision
         if (target->HasSharedVision())
@@ -204,8 +225,16 @@ void MessageDistDeliverer::Visit(DynamicObjectMapType &m)
         if (!target->InSamePhase(i_phaseMask))
             continue;
 
-        if (target->GetExactDist2dSq(i_source) > i_distSq)
-            continue;
+        if (required3dDist)
+        {
+            if (target->GetExactDistSq(i_source) > i_distSq)
+                continue;
+        }
+        else
+        {
+            if (target->GetExactDist2dSq(i_source) > i_distSq)
+                continue;
+        }
 
         if (Unit* caster = target->GetCaster())
         {

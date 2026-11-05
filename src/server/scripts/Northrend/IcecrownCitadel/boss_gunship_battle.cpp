@@ -275,6 +275,17 @@ enum Texts
     SAY_OVERHEAT_ALERT               = 0,
 };
 
+enum MiscData
+{
+    ITEM_GOBLIN_ROCKET_PACK    = 49278,
+    SPELL_CREATE_ROCKET_PACK   = 70055,
+
+    PHASE_COMBAT               = 0,
+    PHASE_INTRO                = 1,
+
+    MUSIC_ENCOUNTER            = 17289
+};
+
 enum Points
 {
     POINT_OUTRO_MIDWAY,
@@ -373,7 +384,7 @@ class npc_gunship_boss : public CreatureScript
                 evading = false;
             }
 
-            void EnterEvadeMode() override
+            void EnterEvadeMode(EvadeReason why = EVADE_REASON_OTHER) override
             {
                 me->CastStop();
                 me->AttackStop();
@@ -498,7 +509,7 @@ class npc_gunship_boss : public CreatureScript
                             events.ScheduleEvent(EVENT_INTRO_HORDE_5, 11000);
                         }
                         DoAction(ACTION_BATTLE_EVENT);
-                        SendMusicToPlayers(17289);
+                        me->GetMap()->SetZoneMusic(AREA_ICECROWN_CITADEL, MUSIC_ENCOUNTER);
                         break;
                     case ACTION_BATTLE_EVENT:
                     {
@@ -514,8 +525,8 @@ class npc_gunship_boss : public CreatureScript
 
                              horde->SetInCombatWith(alliance);
                              alliance->SetInCombatWith(horde);
-                             horde->AddThreat(alliance, 0.0f);
-                             alliance->AddThreat(horde, 0.0f);
+                             horde->GetThreatManager().AddThreat(alliance, 0.0f);
+                             alliance->GetThreatManager().AddThreat(horde, 0.0f);
                              DoZoneInCombat(OtherBoss(), 200.0f);
 
                              for (auto&& passenger : OtherTransport()->GetStaticPassengers())
@@ -560,7 +571,7 @@ class npc_gunship_boss : public CreatureScript
                         if (Creature* zafod = me->FindNearestCreature(NPC_GB_ZAFOD_BOOMBOX, 500.0f, true))
                             zafod->CastSpell(zafod, SPELL_REMOVE_ROCKET_PACK, true);
 
-                        SendMusicToPlayers(0);
+                        me->GetMap()->SetZoneMusic(AREA_ICECROWN_CITADEL, 0);
 
                         Talk(AH(SAY_ALLIANCE_VICTORY, SAY_HORDE_VICTORY));
 
@@ -589,7 +600,7 @@ class npc_gunship_boss : public CreatureScript
                         if (Creature* zafod = me->FindNearestCreature(NPC_GB_ZAFOD_BOOMBOX, 500.0f, true))
                             zafod->CastSpell(zafod, SPELL_REMOVE_ROCKET_PACK, true);
 
-                        SendMusicToPlayers(0);
+                        me->GetMap()->SetZoneMusic(AREA_ICECROWN_CITADEL, 0);
 
                         Talk(AH(SAY_ALLIANCE_DEFEAT, SAY_HORDE_DEFEAT));
 
@@ -1017,13 +1028,6 @@ class npc_gunship_boss : public CreatureScript
                 return nullptr;
             }
 
-            void SendMusicToPlayers(uint32 musicId) const
-            {
-                WorldPacket data(SMSG_PLAY_MUSIC, 4);
-                data << uint32(musicId);
-                SendPacketToPlayers(&data);
-            }
-
             void SendPacketToPlayers(WorldPacket const* data) const
             {
                 Map::PlayerList const& players = me->GetMap()->GetPlayers();
@@ -1149,7 +1153,7 @@ class npc_gunship_boss : public CreatureScript
                     if (Player* player = ref.GetSource())
                     {
                         player->CombatStop();
-                        player->getHostileRefManager().deleteReferences();
+                        player->GetThreatManager().RemoveMeFromThreatLists();
                     }
                 }
             }
@@ -1468,7 +1472,7 @@ class npc_sergeant : public CreatureScript
                     return;
 
                 if (Creature* boss = ObjectAccessor::GetCreature(*me, instance->GetGuidData(me->GetEntry() == NPC_GB_SKYBREAKER_SERGEANT ? DATA_GB_HIGH_OVERLORD_SAURFANG : DATA_GB_MURADIN_BRONZEBEARD)))
-                    me->getThreatManager().modifyThreatPercent(boss, -100);
+                    me->GetThreatManager().ModifyThreatByPercent(boss, -100);
 
                 UpdateVictim();
 
@@ -1564,7 +1568,7 @@ class npc_marine_or_reaver : public CreatureScript
                     return;
 
                 if (Creature* boss = ObjectAccessor::GetCreature(*me, instance->GetGuidData(me->GetEntry() == NPC_GB_SKYBREAKER_MARINE ? DATA_GB_HIGH_OVERLORD_SAURFANG : DATA_GB_MURADIN_BRONZEBEARD)))
-                    me->getThreatManager().modifyThreatPercent(boss, -100);
+                    me->GetThreatManager().ModifyThreatByPercent(boss, -100);
 
                 UpdateVictim();
 
@@ -1885,8 +1889,8 @@ class npc_zafod_boombox : public CreatureScript
             bool OnGossipSelect(Player* player, uint32 sender, uint32 action) override
             {
                 player->CLOSE_GOSSIP_MENU();
-                if (sender == 10885 && action == 0 && !player->HasItemCount(49278, 1, true))
-                    player->AddItem(49278, 1);
+                if (sender == 10885 && action == 0 && !player->HasItemCount(ITEM_GOBLIN_ROCKET_PACK, 1, true))
+                    player->AddItem(ITEM_GOBLIN_ROCKET_PACK, 1);
                 return true;
             }
         };
@@ -2483,7 +2487,7 @@ class npc_icc_spire_frostwyrm: public CreatureScript
                     landed = true;
                     me->SetFlying(false);
                     me->SetInCombatWith(who);
-                    me->AddThreat(who, 1.0f);
+                    me->GetThreatManager().AddThreat(who, 1.0f);
                     me->GetMotionMaster()->MoveChase(who);
                 }
             }
@@ -2613,8 +2617,8 @@ class spell_icc_remove_rocket_pack : public SpellScriptLoader
                 uint32 itemCount = hitPlr->GetItemCount(itemId, false); // Should be 1, but just in case.
                 hitPlr->DestroyItemCount(itemId, itemCount, true, false);
 
-              if (hitPlr->HasItemCount(49278, 1, true))
-                hitPlr->DestroyItemCount(49278, 1, true);
+              if (hitPlr->HasItemCount(ITEM_GOBLIN_ROCKET_PACK, 1, true))
+                hitPlr->DestroyItemCount(ITEM_GOBLIN_ROCKET_PACK, 1, true);
             }
 
             void Register() override
@@ -2872,7 +2876,7 @@ class spell_gb_melee_targeting : public SpellScriptLoader
                         if (caster->GetVictim() != target)
                         {
                             caster->GetAI()->AttackStart(target);
-                            caster->AddThreat(target, 1000.0f);
+                            caster->GetThreatManager().AddThreat(target, 1000.0f);
                         }
                     }
                 }

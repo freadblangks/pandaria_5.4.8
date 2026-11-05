@@ -1,5 +1,5 @@
 /*
-* This file is part of the Pandaria 5.4.8 Project. See THANKS file for Copyright information
+* This file is part of the Legends of Azeroth Pandaria Project. See THANKS file for Copyright information
 *
 * This program is free software; you can redistribute it and/or modify it
 * under the terms of the GNU General Public License as published by the
@@ -15,8 +15,8 @@
 * with this program. If not, see <http://www.gnu.org/licenses/>.
 */
 
-#ifndef SF_PLAYER_H
-#define SF_PLAYER_H
+#ifndef _PLAYER_H
+#define _PLAYER_H
 
 #include "DBCStores.h"
 #include "GroupReference.h"
@@ -825,7 +825,8 @@ enum TeleportToOptions
     TELE_TO_NOT_LEAVE_TRANSPORT = 0x02,
     TELE_TO_NOT_LEAVE_COMBAT = 0x04,
     TELE_TO_NOT_UNSUMMON_PET = 0x08,
-    TELE_TO_SPELL = 0x10
+    TELE_TO_SPELL = 0x10,
+    TELE_TO_TRANSPORT_TELEPORT = 0x20
 };
 
 /// Type of environmental damages
@@ -1322,6 +1323,23 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
     bool ActivateTaxiPathTo(uint32 taxi_path_id, uint32 spellid = 0);
     void CleanupAfterTaxiFlight();
     void ContinueTaxiFlight();
+    // flags
+    bool HasPlayerFlag(PlayerFlags flags) const
+    {
+        return HasFlag(PLAYER_FIELD_PLAYER_FLAGS, flags) != 0;
+    }
+    void SetPlayerFlag(PlayerFlags flags)
+    {
+        SetFlag(PLAYER_FIELD_PLAYER_FLAGS, flags);
+    }
+    void RemovePlayerFlag(PlayerFlags flags)
+    {
+        RemoveFlag(PLAYER_FIELD_PLAYER_FLAGS, flags);
+    }
+    void ReplaceAllPlayerFlags(PlayerFlags flags)
+    {
+        SetUInt32Value(PLAYER_FIELD_PLAYER_FLAGS, flags);
+    }
     // mount_id can be used in scripting calls
     bool isAcceptWhispers() const
     {
@@ -1449,7 +1467,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
     uint8 FindEquipSlot(ItemTemplate const* proto, uint32 slot, bool swap) const;
     uint32 GetItemCount(uint32 item, bool inBankAlso = false, Item* skipItem = NULL) const;
     uint32 GetItemCountWithLimitCategory(uint32 limitCategory, Item* skipItem = NULL) const;
-    Item* GetItemByGuid(uint64 guid) const;
+    Item* GetItemByGuid(ObjectGuid guid) const;
     Item* GetItemByEntry(uint32 entry) const;
     Item* GetItemByPos(uint16 pos) const;
     Item* GetItemByPos(uint8 bag, uint8 slot) const;
@@ -1629,7 +1647,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
     TradeData* GetTradeData() const { return m_trade; }
     void TradeCancel(bool sendback);
 
-    CinematicMgr* GetCinematicMgr() const { return _cinematicMgr; }
+    CinematicMgr* GetCinematicMgr() const { return _cinematicMgr.get(); }
 
     void UpdateEnchantTime(uint32 time);
     void UpdateSoulboundTradeItems();
@@ -1767,6 +1785,7 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
     bool IsQuestObjectiveComplete(Quest const* quest, QuestObjective const& objective) const;
 
     void SendQuestComplete(Quest const* quest);
+    void SendQuestComplete(uint32 questId) const;
     void SendQuestReward(Quest const* quest, uint32 XP);
     void SendQuestFailed(uint32 questId, InventoryResult reason = EQUIP_ERR_OK);
     void SendQuestTimerFailed(uint32 questId);
@@ -1919,9 +1938,13 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
     {
         return m_comboPoints;
     }
-    ObjectGuid GetComboTarget() const
+    Unit* GetComboTarget() const
     {
-        return m_comboTarget;
+        return const_cast<Player*>(this)->GetValidComboTarget();
+    }
+    ObjectGuid GetComboTargetGUID() const
+    {
+        return m_comboTarget ? m_comboTargetGuid : ObjectGuid::Empty;   // Never touch the pointer
     }
 
     void AddComboPoints(Unit* target, int8 count, Spell* spell = NULL);
@@ -2163,6 +2186,9 @@ class TC_GAME_API Player : public Unit, public GridObject<Player>
     uint8 getCinematic() const { return m_cinematic; }
     void setCinematic(uint8 cine) { m_cinematic = cine; }
 
+    uint32 GetMovie() const { return m_movie; }
+    void SetMovie(uint32 movie) { m_movie = movie; }
+
     ActionButton* AddActionButton(uint8 button, uint32 action, uint8 type);
     void RemoveActionButton(uint8 button);
     ActionButton const* GetActionButton(uint8 button);
@@ -2401,13 +2427,11 @@ public:
     bool UpdatePosition(float x, float y, float z, float orientation, bool teleport = false) override;
     bool UpdatePosition(const Position &pos, bool teleport = false) override { return UpdatePosition(pos.GetPositionX(), pos.GetPositionY(), pos.GetPositionZ(), pos.GetOrientation(), teleport); }
     void ProcessTerrainStatusUpdate(ZLiquidStatus oldLiquidStatus, Optional<LiquidData> const& newLiquidData) override;
-    void SendMessageToSet(WorldPacket* data, bool self)
-    {
-        SendMessageToSetInRange(data, GetVisibilityRange() + 2 * World::Visibility_RelocationLowerLimit, self);
-    };// overwrite Object::SendMessageToSet
-    void SendMessageToSetInRange(WorldPacket* data, float fist, bool self);// overwrite Object::SendMessageToSetInRange
-    void SendMessageToSetInRange(WorldPacket* data, float dist, bool self, bool own_team_only);
-    void SendMessageToSet(WorldPacket* data, Player const* skipped_rcvr);
+
+    void SendMessageToSet(WorldPacket const* data, bool self) const override { SendMessageToSetInRange(data, GetVisibilityRange() + 2 * World::Visibility_RelocationLowerLimit, self); }
+    void SendMessageToSetInRange(WorldPacket const* data, float dist, bool self) const override;
+    void SendMessageToSetInRange(WorldPacket const* data, float dist, bool self, bool own_team_only, bool required3dDist = false) const;
+    void SendMessageToSet(WorldPacket const* data, Player const* skipped_rcvr) const override;
 
     Corpse* GetCorpse() const;
     void SpawnCorpseBones(bool triggerSave = true);
@@ -2653,7 +2677,7 @@ public:
 
     void SendAurasForTarget(Unit* target);
 
-    PlayerMenu* PlayerTalkClass;
+    std::unique_ptr<PlayerMenu> PlayerTalkClass;
     std::vector<ItemSetEffect*> ItemSetEff;
 
     std::unordered_map<ObjectGuid, ObjectGuid> const& GetLootView() const { return m_lootView; }
@@ -2822,6 +2846,7 @@ public:
     void   SaveRecallPosition();
 
     void SetHomebind(WorldLocation const& loc, uint32 areaId);
+    void SendBindPointUpdate();
 
     // Homebind coordinates
     uint32 m_homebindMapId;
@@ -3447,7 +3472,9 @@ protected:
 
     uint32 m_ExtraFlags;
 
-    ObjectGuid m_comboTarget;
+    Unit* m_comboTarget;
+    ObjectGuid m_comboTargetGuid;
+    Unit* GetValidComboTarget();
     int8 m_comboPoints;
 
     QuestStatusMap m_QuestStatus;
@@ -3498,6 +3525,8 @@ protected:
     JoinedChannelsList m_channels;
 
     uint8 m_cinematic;
+
+    uint32 m_movie;
 
     TradeData* m_trade;
 
@@ -3582,7 +3611,7 @@ protected:
     Item* _StoreItem(uint16 pos, Item* pItem, uint32 count, bool clone, bool update);
     Item* _LoadItem(CharacterDatabaseTransaction trans, uint32 zoneId, uint32 timeDiff, Field* fields);
 
-    CinematicMgr* _cinematicMgr;
+    std::unique_ptr<CinematicMgr> _cinematicMgr;
 
     std::set<uint32> m_refundableItems;
     void SendRefundInfo(Item* item);
